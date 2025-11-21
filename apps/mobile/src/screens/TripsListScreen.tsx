@@ -45,13 +45,15 @@ export const TripsListScreen: React.FC = () => {
 
   const renderRightActions = (trip: Trip) => {
     return (
-      <TouchableOpacity
-        style={styles.deleteAction}
-        onPress={() => handleDeleteTrip(trip)}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.deleteText}>Delete</Text>
-      </TouchableOpacity>
+      <View style={styles.deleteActionContainer}>
+        <TouchableOpacity
+          style={styles.deleteAction}
+          onPress={() => handleDeleteTrip(trip)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.deleteText}>Delete</Text>
+        </TouchableOpacity>
+      </View>
     );
   };
 
@@ -61,17 +63,18 @@ export const TripsListScreen: React.FC = () => {
       overshootRight={false}
       friction={2}
     >
-      <TouchableOpacity
-        style={styles.tripCard}
-        onPress={() => handleTripPress(item.id)}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.tripTitle}>{item.title}</Text>
-        <Text style={styles.tripDestination}>{item.destination}</Text>
-        <Text style={styles.tripDates}>
-          {item.startDate} → {item.endDate}
-        </Text>
-      </TouchableOpacity>
+      <View style={styles.tripCard}>
+        <TouchableOpacity
+          onPress={() => handleTripPress(item.id)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.tripTitle}>{item.title}</Text>
+          <Text style={styles.tripDestination}>{item.destination}</Text>
+          <Text style={styles.tripDates}>
+            {item.startDate} → {item.endDate}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </Swipeable>
   );
 
@@ -151,6 +154,9 @@ const styles = StyleSheet.create({
   tripDates: {
     fontSize: 14,
     color: '#999',
+  },
+  deleteActionContainer: {
+    justifyContent: 'center',
   },
   deleteAction: {
     backgroundColor: '#f44336',
