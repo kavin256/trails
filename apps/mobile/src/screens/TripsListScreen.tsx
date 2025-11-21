@@ -61,7 +61,7 @@ export const TripsListScreen: React.FC = () => {
     <Swipeable
       renderRightActions={() => renderRightActions(item)}
       overshootRight={false}
-      friction={2}
+      friction={3}
     >
       <View style={styles.tripCard}>
         <TouchableOpacity
@@ -135,10 +135,10 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   tripTitle: {
     fontSize: 18,
@@ -164,8 +164,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: 100,
     height: '100%',
-    borderTopRightRadius: 12,
-    borderBottomRightRadius: 12,
+    borderRadius: 12,
+    marginLeft: 8,
   },
   deleteText: {
     color: '#fff',
