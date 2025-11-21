@@ -53,7 +53,7 @@ Each app under `apps/` will have its own `package.json` and can be developed ind
 - ✓ Implemented three core screens:
   - `TripsListScreen` - Browse all trips
   - `TripDetailsScreen` - View trip details
-  - `EditTripScreen` - Create/edit trips (form coming soon)
+  - `EditTripScreen` - Create/edit trips
 
 **Phase 3: State Management**
 - ✓ Created `Trip` domain type with proper TypeScript definitions
@@ -62,12 +62,15 @@ Each app under `apps/` will have its own `package.json` and can be developed ind
 - ✓ Integrated context across all screens via `useTrips()` hook
 - ✓ In-memory state management (preparing for SQLite persistence)
 
-### Next Steps
+**Phase 4: Trip Form & Validation**
+- ✓ Implemented full create/edit form in `EditTripScreen`
+- ✓ Added form validation for required fields (title, destination)
+- ✓ Wired up `addTrip` and `updateTrip` operations with context
+- ✓ Trips can be created and edited via the dedicated form, backed by in-memory `TripsContext`
+- ✓ Form prefills data when editing existing trips
+- ✓ Automatic navigation back to previous screen after save
 
-**Phase 4: Trip Form & Validation** (Coming Soon)
-- Implement trip creation/editing form in `EditTripScreen`
-- Add form validation and date pickers
-- Wire up `addTrip` and `updateTrip` operations
+### Next Steps
 
 **Phase 5: Local Persistence** (Planned)
 - Integrate SQLite database for offline storage
