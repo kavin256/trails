@@ -3,11 +3,15 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import type { RootStackRouteProp, RootStackNavigationProp } from '../types/navigation';
 import { Screen } from '../components/Screen';
+import { useTrips } from '../context/TripsContext';
 
 export const EditTripScreen: React.FC = () => {
   const route = useRoute<RootStackRouteProp<'EditTrip'>>();
   const navigation = useNavigation<RootStackNavigationProp>();
   const { tripId } = route.params;
+
+  // Context is ready for form implementation in next step
+  const { getTripById, addTrip, updateTrip } = useTrips();
 
   const isEditMode = !!tripId;
 

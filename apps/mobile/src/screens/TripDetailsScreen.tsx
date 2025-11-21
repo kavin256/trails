@@ -3,15 +3,16 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { useRoute, useNavigation } from '@react-navigation/native';
 import type { RootStackRouteProp, RootStackNavigationProp } from '../types/navigation';
 import { Screen } from '../components/Screen';
-import { DUMMY_TRIPS } from './TripsListScreen';
+import { useTrips } from '../context/TripsContext';
 
 export const TripDetailsScreen: React.FC = () => {
   const route = useRoute<RootStackRouteProp<'TripDetails'>>();
   const navigation = useNavigation<RootStackNavigationProp>();
+  const { getTripById } = useTrips();
   const { tripId } = route.params;
 
-  // Find the trip from dummy data
-  const trip = DUMMY_TRIPS.find((t) => t.id === tripId);
+  // Find the trip from context
+  const trip = getTripById(tripId);
 
   if (!trip) {
     return (

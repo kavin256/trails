@@ -2,46 +2,13 @@ import React from 'react';
 import { FlatList, TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { RootStackNavigationProp } from '../types/navigation';
+import type { Trip } from '../types/trip';
 import { Screen } from '../components/Screen';
-
-export interface Trip {
-  id: string;
-  title: string;
-  destination: string;
-  startDate: string;
-  endDate: string;
-  notes?: string;
-}
-
-// Dummy data for demonstration
-export const DUMMY_TRIPS: Trip[] = [
-  {
-    id: '1',
-    title: 'Summer Vacation',
-    destination: 'Bali, Indonesia',
-    startDate: '2025-07-15',
-    endDate: '2025-07-25',
-    notes: 'Beach resort and temple tours',
-  },
-  {
-    id: '2',
-    title: 'Business Trip',
-    destination: 'New York, USA',
-    startDate: '2025-08-10',
-    endDate: '2025-08-13',
-    notes: 'Tech conference downtown',
-  },
-  {
-    id: '3',
-    title: 'Weekend Getaway',
-    destination: 'Portland, Oregon',
-    startDate: '2025-09-05',
-    endDate: '2025-09-07',
-  },
-];
+import { useTrips } from '../context/TripsContext';
 
 export const TripsListScreen: React.FC = () => {
   const navigation = useNavigation<RootStackNavigationProp>();
+  const { trips, deleteTrip } = useTrips();
 
   const handleTripPress = (tripId: string) => {
     navigation.navigate('TripDetails', { tripId });
@@ -76,7 +43,7 @@ export const TripsListScreen: React.FC = () => {
         </View>
 
         <FlatList
-          data={DUMMY_TRIPS}
+          data={trips}
           keyExtractor={(item) => item.id}
           renderItem={renderTripItem}
           contentContainerStyle={styles.listContainer}
