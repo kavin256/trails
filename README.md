@@ -84,10 +84,14 @@ Each app under `apps/` will have its own `package.json` and can be developed ind
 
 ### Next Steps
 
-**Phase 6: Sync & Backend** (Planned)
-- Build Express API under `apps/api`
-- Implement conflict resolution for offline sync
-- Add background sync when online
+**Phase 6: Sync & Backend** (In Progress)
+- ✓ Created Express + TypeScript backend skeleton under `apps/api`
+- ✓ Added `/health` endpoint for monitoring
+- Implement database layer (PostgreSQL or SQLite)
+- Build `GET /trips` and `POST /trips/batch` endpoints
+- Implement server-controlled timestamp assignment
+- Implement last-writer-wins conflict resolution
+- Add background sync to mobile app when online
 
 ## API & Sync Design
 
@@ -131,8 +135,9 @@ The `deleted` flag enables **soft deletes**: when a trip is deleted, it's marked
 
 The system uses a **last-writer-wins (LWW)** strategy based on the `updatedAt` timestamp:
 
-- When the server receives a trip update, it compares the incoming `updatedAt` with the stored version
-- The version with the newer `updatedAt` timestamp always wins
+- When the server receives a trip update, it checks if a version already exists in the database
+- The server assigns a new `updatedAt` timestamp using its own clock and stores the trip
+- If the server already has a newer version (based on server timestamps), it rejects the change and returns the server's version to the client
 - This simple strategy works well for personal trip planning where true conflicts (two devices editing the same trip while offline) are rare
 - The backend ignores client timestamps and relies solely on server-generated `updatedAt` values when determining which version wins
 
@@ -183,3 +188,52 @@ npm run dev:mobile
 ```
 
 Then scan the QR code with Expo Go on your mobile device.
+
+## Backend (apps/api)
+
+The `apps/api` directory contains a Node.js Express + TypeScript backend service that will provide the Trip sync API.
+
+### Running the Backend
+
+From the repository root:
+
+```bash
+npm run dev:api
+```
+
+The server will start on port 4000 (or the port specified in the `PORT` environment variable).
+
+### Current Endpoints
+
+**`GET /health`**
+
+Health check endpoint that returns the server status.
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "uptimeSeconds": 123.456,
+  "serverTime": 1704326400000
+}
+```
+
+**Test it:**
+```bash
+curl http://localhost:4000/health
+```
+
+Or open `http://localhost:4000/health` in your browser.
+
+### Future Implementation
+
+The backend will implement the Trip sync protocol as defined in [docs/api-contract.md](docs/api-contract.md):
+
+- **`GET /trips?since=<timestamp>`** - Retrieve trips from the server with optional incremental sync
+- **`POST /trips/batch`** - Push local changes and receive server-side changes
+
+These endpoints will:
+- Store trips in a database (PostgreSQL or SQLite)
+- Assign `updatedAt` timestamps using the server's clock (`Date.now()`), not trusting client-provided timestamps
+- Implement last-writer-wins conflict resolution based on server-controlled timestamps
+- Return `serverTime` in all responses for client sync coordination

@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "dev:mobile": "npm run start --workspace apps/mobile",
+    "dev:api": "npm run dev --workspace apps/api",
     "clean": "rm -rf node_modules apps/*/node_modules"
   },
   "keywords": [],
