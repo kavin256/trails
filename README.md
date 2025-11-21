@@ -60,22 +60,25 @@ Each app under `apps/` will have its own `package.json` and can be developed ind
 - ✓ Implemented `TripsContext` with React Context API
 - ✓ Built CRUD operations: `getTripById`, `addTrip`, `updateTrip`, `deleteTrip`
 - ✓ Integrated context across all screens via `useTrips()` hook
-- ✓ In-memory state management (preparing for SQLite persistence)
 
 **Phase 4: Trip Form & Validation**
 - ✓ Implemented full create/edit form in `EditTripScreen`
 - ✓ Added form validation for required fields (title, destination)
 - ✓ Wired up `addTrip` and `updateTrip` operations with context
-- ✓ Trips can be created and edited via the dedicated form, backed by in-memory `TripsContext`
+- ✓ Trips can be created and edited via the dedicated form
 - ✓ Form prefills data when editing existing trips
 - ✓ Automatic navigation back to previous screen after save
 
-### Next Steps
+**Phase 5: Local Persistence**
+- ✓ Integrated SQLite database using `expo-sqlite` for offline storage
+- ✓ Implemented `TripRepository` abstraction layer for data access
+- ✓ Trips are now persisted locally in SQLite, surviving app restarts
+- ✓ Database initialization with automatic table creation
+- ✓ All CRUD operations write to both SQLite and in-memory state
+- ✓ App behaves in a fully offline-first manner with local persistence
+- ✓ No changes required to screen components (context abstraction works!)
 
-**Phase 5: Local Persistence** (Planned)
-- Integrate SQLite database for offline storage
-- Implement repository pattern for data access
-- Add migration support for schema changes
+### Next Steps
 
 **Phase 6: Sync & Backend** (Planned)
 - Build Express API under `apps/api`
