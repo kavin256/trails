@@ -69,12 +69,15 @@ Each app under `apps/` will have its own `package.json` and can be developed ind
 - ✓ Form prefills data when editing existing trips
 - ✓ Automatic navigation back to previous screen after save
 
-**Phase 5: Local Persistence**
+**Phase 5: Local Persistence & Delete Operations**
 - ✓ Integrated SQLite database using `expo-sqlite` for offline storage
 - ✓ Implemented `TripRepository` abstraction layer for data access
 - ✓ Trips are now persisted locally in SQLite, surviving app restarts
 - ✓ Database initialization with automatic table creation
 - ✓ All CRUD operations write to both SQLite and in-memory state
+- ✓ Trips can be deleted from both list and details screens with confirmation dialogs
+- ✓ Trips list supports swipe-to-delete interactions using `react-native-gesture-handler`, providing a native-feeling UX on both iOS and Android
+- ✓ Deletions are persisted to SQLite - removed trips do not reappear after app restarts
 - ✓ App behaves in a fully offline-first manner with local persistence
 - ✓ No changes required to screen components (context abstraction works!)
 

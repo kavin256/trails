@@ -8,7 +8,7 @@ interface TripsContextValue {
   getTripById: (id: string) => Trip | undefined;
   addTrip: (data: Omit<Trip, 'id' | 'updatedAt'>) => void;
   updateTrip: (id: string, data: Partial<Omit<Trip, 'id' | 'updatedAt'>>) => void;
-  deleteTrip: (id: string) => void;
+  deleteTrip: (id: string) => Promise<void>;
 }
 
 const TripsContext = createContext<TripsContextValue | undefined>(undefined);
@@ -135,16 +135,17 @@ export const TripsProvider: React.FC<TripsProviderProps> = ({ children }) => {
       });
   };
 
-  const deleteTrip = (id: string): void => {
-    // Delete from database
-    TripRepository.deleteTrip(id)
-      .then(() => {
-        // Update in-memory state on success
-        setTrips((prev) => prev.filter((trip) => trip.id !== id));
-      })
-      .catch((error) => {
-        console.error('Error deleting trip:', error);
-      });
+  const deleteTrip = async (id: string): Promise<void> => {
+    try {
+      // Delete from database
+      await TripRepository.deleteTrip(id);
+
+      // Update in-memory state on success
+      setTrips((prev) => prev.filter((trip) => trip.id !== id));
+    } catch (error) {
+      console.error('Error deleting trip:', error);
+      throw error; // Re-throw so UI can handle if needed
+    }
   };
 
   const value: TripsContextValue = {

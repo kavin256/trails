@@ -1,6 +1,7 @@
 import React from 'react';
-import { FlatList, TouchableOpacity, View, Text, StyleSheet } from 'react-native';
+import { FlatList, TouchableOpacity, View, Text, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
 import type { RootStackNavigationProp } from '../types/navigation';
 import type { Trip } from '../types/trip';
 import { Screen } from '../components/Screen';
@@ -18,18 +19,60 @@ export const TripsListScreen: React.FC = () => {
     navigation.navigate('EditTrip', {});
   };
 
+  const handleDeleteTrip = (trip: Trip) => {
+    Alert.alert(
+      'Delete Trip',
+      `Are you sure you want to delete "${trip.title}"?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteTrip(trip.id);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete trip. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const renderRightActions = (trip: Trip) => {
+    return (
+      <TouchableOpacity
+        style={styles.deleteAction}
+        onPress={() => handleDeleteTrip(trip)}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.deleteText}>Delete</Text>
+      </TouchableOpacity>
+    );
+  };
+
   const renderTripItem = ({ item }: { item: Trip }) => (
-    <TouchableOpacity
-      style={styles.tripCard}
-      onPress={() => handleTripPress(item.id)}
-      activeOpacity={0.7}
+    <Swipeable
+      renderRightActions={() => renderRightActions(item)}
+      overshootRight={false}
+      friction={2}
     >
-      <Text style={styles.tripTitle}>{item.title}</Text>
-      <Text style={styles.tripDestination}>{item.destination}</Text>
-      <Text style={styles.tripDates}>
-        {item.startDate} → {item.endDate}
-      </Text>
-    </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.tripCard}
+        onPress={() => handleTripPress(item.id)}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.tripTitle}>{item.title}</Text>
+        <Text style={styles.tripDestination}>{item.destination}</Text>
+        <Text style={styles.tripDates}>
+          {item.startDate} → {item.endDate}
+        </Text>
+      </TouchableOpacity>
+    </Swipeable>
   );
 
   return (
@@ -108,5 +151,19 @@ const styles = StyleSheet.create({
   tripDates: {
     fontSize: 14,
     color: '#999',
+  },
+  deleteAction: {
+    backgroundColor: '#f44336',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 100,
+    height: '100%',
+    borderTopRightRadius: 12,
+    borderBottomRightRadius: 12,
+  },
+  deleteText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
