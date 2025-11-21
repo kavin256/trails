@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import { tripsRouter } from './routes/trips.js';
 
 const app = express();
 
@@ -21,6 +22,9 @@ app.get('/health', (req: Request, res: Response) => {
     serverTime: Date.now(),
   });
 });
+
+// Trip sync endpoints
+app.use('/trips', tripsRouter);
 
 // Start server
 const PORT = process.env.PORT || 4000;

@@ -87,10 +87,12 @@ Each app under `apps/` will have its own `package.json` and can be developed ind
 **Phase 6: Sync & Backend** (In Progress)
 - ✓ Created Express + TypeScript backend skeleton under `apps/api`
 - ✓ Added `/health` endpoint for monitoring
+- ✓ Implemented stub `GET /trips` and `POST /trips/batch` endpoints with mock data
+- ✓ Defined `TripDTO` type matching the API contract
+- ✓ Server-controlled timestamp assignment (using `Date.now()` even in stub mode)
 - Implement database layer (PostgreSQL or SQLite)
-- Build `GET /trips` and `POST /trips/batch` endpoints
-- Implement server-controlled timestamp assignment
-- Implement last-writer-wins conflict resolution
+- Replace mock data with real database operations
+- Implement last-writer-wins conflict resolution with server timestamps
 - Add background sync to mobile app when online
 
 ## API & Sync Design
@@ -225,15 +227,93 @@ curl http://localhost:4000/health
 
 Or open `http://localhost:4000/health` in your browser.
 
-### Future Implementation
+---
 
-The backend will implement the Trip sync protocol as defined in [docs/api-contract.md](docs/api-contract.md):
+**Stub sync endpoints are now available:**
 
-- **`GET /trips?since=<timestamp>`** - Retrieve trips from the server with optional incremental sync
-- **`POST /trips/batch`** - Push local changes and receive server-side changes
+**`GET /trips?since=<timestamp>`**
 
-These endpoints will:
-- Store trips in a database (PostgreSQL or SQLite)
-- Assign `updatedAt` timestamps using the server's clock (`Date.now()`), not trusting client-provided timestamps
-- Implement last-writer-wins conflict resolution based on server-controlled timestamps
-- Return `serverTime` in all responses for client sync coordination
+Retrieve trips from the server with optional incremental sync.
+
+**Response:**
+```json
+{
+  "trips": [
+    {
+      "id": "1",
+      "title": "Summer Vacation",
+      "destination": "Bali, Indonesia",
+      "startDate": "2025-07-15",
+      "endDate": "2025-07-25",
+      "notes": "Beach resort and temple tours",
+      "updatedAt": 1704326400000,
+      "deleted": false
+    }
+  ],
+  "serverTime": 1704412800000
+}
+```
+
+**Test it:**
+```bash
+curl http://localhost:4000/trips
+curl "http://localhost:4000/trips?since=1704000000000"
+```
+
+**`POST /trips/batch`**
+
+Push local changes to the server and receive server-side changes.
+
+**Request:**
+```json
+{
+  "clientId": "device-abc-123",
+  "lastSyncedAt": 1704067200000,
+  "changes": [
+    {
+      "id": "10",
+      "title": "Weekend Getaway",
+      "destination": "Portland, Oregon",
+      "startDate": "2025-09-05",
+      "endDate": "2025-09-07",
+      "updatedAt": 1704326400000,
+      "deleted": false
+    }
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "applied": [
+    { "id": "10", "status": "created" }
+  ],
+  "conflicts": [],
+  "serverChanges": [],
+  "serverTime": 1704412800000
+}
+```
+
+**Test it:**
+```bash
+curl -X POST http://localhost:4000/trips/batch \
+  -H "Content-Type: application/json" \
+  -d '{"clientId":"test-device","lastSyncedAt":null,"changes":[]}'
+```
+
+**Note:** These endpoints currently use mock data and follow the API contract shape defined in [docs/api-contract.md](docs/api-contract.md). The server always assigns `updatedAt` using server time (even in stub mode), demonstrating the server-controlled timestamp design. Database integration and real sync logic will be implemented in the next phase.
+
+### Next Steps for Backend
+
+The sync endpoints are implemented but currently use mock data. The next phase will add:
+
+- **Database layer** (PostgreSQL or SQLite) for persistent trip storage
+- **Real sync logic** that:
+  - Validates incoming trip data
+  - Assigns server-controlled `updatedAt` timestamps (ignoring client values)
+  - Implements last-writer-wins conflict resolution
+  - Queries for server-side changes since `lastSyncedAt`
+  - Handles soft deletes properly
+- **Error handling** for invalid requests and database failures
+- **Authentication** (future) to ensure users only access their own trips
