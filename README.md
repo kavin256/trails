@@ -68,6 +68,7 @@ Each app under `apps/` will have its own `package.json` and can be developed ind
 - ✓ Trips can be created and edited via the dedicated form
 - ✓ Form prefills data when editing existing trips
 - ✓ Automatic navigation back to previous screen after save
+- ✓ Trip start/end dates are selected via a native date picker (calendar) using `@react-native-community/datetimepicker`, instead of manual text input
 
 **Phase 5: Local Persistence & Delete Operations**
 - ✓ Integrated SQLite database using `expo-sqlite` for offline storage
@@ -105,6 +106,7 @@ The backend will expose two primary endpoints:
 - Push local changes to the server and receive server-side changes
 - Request body: `{ clientId: string, lastSyncedAt: number | null, changes: TripDTO[] }`
 - Response: `{ applied: {...}[], conflicts: {...}[], serverChanges: TripDTO[], serverTime: number }`
+- Although the client includes `updatedAt` in the payload, the server overrides it with its own timestamp
 
 ### Data Model
 
@@ -132,8 +134,13 @@ The system uses a **last-writer-wins (LWW)** strategy based on the `updatedAt` t
 - When the server receives a trip update, it compares the incoming `updatedAt` with the stored version
 - The version with the newer `updatedAt` timestamp always wins
 - This simple strategy works well for personal trip planning where true conflicts (two devices editing the same trip while offline) are rare
+- The backend ignores client timestamps and relies solely on server-generated `updatedAt` values when determining which version wins
 
 The initial implementation will use pure last-writer-wins without explicit conflict detection. Future versions may detect conflicts and allow manual resolution.
+
+### Server-Controlled Timestamps
+
+The server is the single source of truth for all `updatedAt` timestamps. When the server receives a trip update, it always assigns `updatedAt` using its own clock (`Date.now()`), treating client-provided timestamps as provisional. Only the server's `updatedAt` is used for last-writer-wins conflict resolution, ensuring consistency across all devices. The `lastSyncedAt` value stored on each device is always derived from `serverTime` returned by the API, never from the device's local clock. This design eliminates issues caused by device clock drift, timezone differences, or manually changed phone dates, making the sync protocol robust against incorrect client clocks.
 
 ### Sync Algorithm
 
