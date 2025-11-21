@@ -87,12 +87,14 @@ Each app under `apps/` will have its own `package.json` and can be developed ind
 **Phase 6: Sync & Backend** (In Progress)
 - ✓ Created Express + TypeScript backend skeleton under `apps/api`
 - ✓ Added `/health` endpoint for monitoring
-- ✓ Implemented stub `GET /trips` and `POST /trips/batch` endpoints with mock data
+- ✓ Implemented `GET /trips` and `POST /trips/batch` endpoints
 - ✓ Defined `TripDTO` type matching the API contract
-- ✓ Server-controlled timestamp assignment (using `Date.now()` even in stub mode)
-- Implement database layer (PostgreSQL or SQLite)
-- Replace mock data with real database operations
-- Implement last-writer-wins conflict resolution with server timestamps
+- ✓ Created in-memory Trip store with last-writer-wins behavior
+- ✓ Server-controlled timestamp assignment (ignores client `updatedAt`, uses `Date.now()`)
+- ✓ Incremental sync support (filtering by `since` timestamp)
+- ✓ First-time sync support (returns all trips when `lastSyncedAt` is null)
+- ✓ Soft delete support (trips with `deleted: true` remain in store)
+- Implement database layer (PostgreSQL or SQLite) for persistence
 - Add background sync to mobile app when online
 
 ## API & Sync Design
@@ -302,18 +304,27 @@ curl -X POST http://localhost:4000/trips/batch \
   -d '{"clientId":"test-device","lastSyncedAt":null,"changes":[]}'
 ```
 
-**Note:** These endpoints currently use mock data and follow the API contract shape defined in [docs/api-contract.md](docs/api-contract.md). The server always assigns `updatedAt` using server time (even in stub mode), demonstrating the server-controlled timestamp design. Database integration and real sync logic will be implemented in the next phase.
+**Implementation Status:**
+
+The `/trips` endpoints now use an **in-memory Trip store** that implements real last-writer-wins behavior with server-controlled timestamps:
+
+- **Server-controlled timestamps**: The server ignores client-provided `updatedAt` values and always assigns timestamps using `Date.now()`, ensuring the server is the single source of truth
+- **Last-writer-wins**: When a client pushes a trip change, the server replaces any existing trip with the same ID, using arrival order to determine "last"
+- **Incremental sync**: `GET /trips?since=<timestamp>` returns only trips with `updatedAt > since` (server timestamps)
+- **First-time sync**: `POST /trips/batch` with `lastSyncedAt: null` returns all trips in `serverChanges`
+- **Soft deletes**: Trips with `deleted: true` remain in the store and sync to all devices
+
+**Limitations:**
+- Data is **not persisted** across server restarts (in-memory only)
+- No conflict detection (conflicts array is always empty)
+- No authentication or authorization
 
 ### Next Steps for Backend
 
-The sync endpoints are implemented but currently use mock data. The next phase will add:
+The sync endpoints now implement real last-writer-wins logic with server-controlled timestamps. The next phase will add:
 
-- **Database layer** (PostgreSQL or SQLite) for persistent trip storage
-- **Real sync logic** that:
-  - Validates incoming trip data
-  - Assigns server-controlled `updatedAt` timestamps (ignoring client values)
-  - Implements last-writer-wins conflict resolution
-  - Queries for server-side changes since `lastSyncedAt`
-  - Handles soft deletes properly
-- **Error handling** for invalid requests and database failures
+- **Database layer** (PostgreSQL or SQLite) for persistent trip storage (replacing the in-memory store)
+- **Enhanced validation** of incoming trip data
+- **Better error handling** for invalid requests and database failures
+- **Conflict detection** (optional) to populate the `conflicts` array when appropriate
 - **Authentication** (future) to ensure users only access their own trips
