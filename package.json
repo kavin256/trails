@@ -1,0 +1,16 @@
+{
+  "name": "trails",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Trails monorepo - Mobile app and API backend",
+  "workspaces": [
+    "apps/mobile",
+    "apps/api"
+  ],
+  "scripts": {
+    "clean": "rm -rf node_modules apps/*/node_modules"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
