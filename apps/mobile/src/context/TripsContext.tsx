@@ -9,6 +9,7 @@ interface TripsContextValue {
   addTrip: (data: Omit<Trip, 'id' | 'updatedAt'>) => void;
   updateTrip: (id: string, data: Partial<Omit<Trip, 'id' | 'updatedAt'>>) => void;
   deleteTrip: (id: string) => Promise<void>;
+  refreshFromDb: () => Promise<void>;
 }
 
 const TripsContext = createContext<TripsContextValue | undefined>(undefined);
@@ -148,6 +149,17 @@ export const TripsProvider: React.FC<TripsProviderProps> = ({ children }) => {
     }
   };
 
+  const refreshFromDb = async (): Promise<void> => {
+    try {
+      // Reload all trips from SQLite
+      const freshTrips = await TripRepository.getAllTrips();
+      setTrips(freshTrips);
+    } catch (error) {
+      console.error('Error refreshing trips from database:', error);
+      throw error;
+    }
+  };
+
   const value: TripsContextValue = {
     trips,
     isLoading,
@@ -155,6 +167,7 @@ export const TripsProvider: React.FC<TripsProviderProps> = ({ children }) => {
     addTrip,
     updateTrip,
     deleteTrip,
+    refreshFromDb,
   };
 
   return (

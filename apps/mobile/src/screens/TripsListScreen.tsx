@@ -14,11 +14,12 @@ import type { RootStackNavigationProp } from '../types/navigation';
 import type { Trip } from '../types/trip';
 import { Screen } from '../components/Screen';
 import { useTrips } from '../context/TripsContext';
-import { pushAllTripsToServer } from '../sync/tripsSync';
+import { syncTripsOnce } from '../sync/tripsSync';
+import { clearLastSyncedAt } from '../sync/syncState';
 
 export const TripsListScreen: React.FC = () => {
   const navigation = useNavigation<RootStackNavigationProp>();
-  const { trips, deleteTrip } = useTrips();
+  const { trips, deleteTrip, refreshFromDb } = useTrips();
   const [isSyncing, setIsSyncing] = useState(false);
 
   const handleTripPress = (tripId: string) => {
@@ -56,8 +57,14 @@ export const TripsListScreen: React.FC = () => {
   const handleSync = async () => {
     try {
       setIsSyncing(true);
-      await pushAllTripsToServer();
-      Alert.alert('Sync complete', 'Trips have been pushed to the server.');
+      // Perform two-way sync: push local changes + pull server changes
+      await syncTripsOnce();
+      // Refresh the UI from SQLite (which now includes server changes)
+      await refreshFromDb();
+      Alert.alert(
+        'Sync complete',
+        'Your trips have been synced with the server.'
+      );
     } catch (error) {
       console.error(error);
       Alert.alert(
@@ -67,6 +74,34 @@ export const TripsListScreen: React.FC = () => {
     } finally {
       setIsSyncing(false);
     }
+  };
+
+  const handleClearSync = async () => {
+    Alert.alert(
+      'Clear Sync State',
+      'This will reset sync and force a full sync on next attempt. Continue?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearLastSyncedAt();
+              Alert.alert(
+                'Success',
+                'Sync state cleared. Next sync will be a full sync.'
+              );
+            } catch (error) {
+              Alert.alert('Error', 'Failed to clear sync state');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const renderRightActions = (trip: Trip) => (
@@ -109,6 +144,13 @@ export const TripsListScreen: React.FC = () => {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>My Trips</Text>
           <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.clearSyncButton}
+              onPress={handleClearSync}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.clearSyncText}>Clear Sync</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.syncButton,
@@ -164,6 +206,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  clearSyncButton: {
+    backgroundColor: '#FF9500',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  clearSyncText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
   syncButton: {
     backgroundColor: '#34C759',

@@ -8,9 +8,35 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Simple request logging middleware
+// Enhanced request logging middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
-  console.log(`${req.method} ${req.path}`);
+  const startTime = Date.now();
+
+  // Log request details
+  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`📥 ${req.method} ${req.path}`);
+  console.log(`   Time: ${new Date().toISOString()}`);
+
+  // Log query parameters
+  if (Object.keys(req.query).length > 0) {
+    console.log(`   Query:`, req.query);
+  }
+
+  // Log request body (for POST/PUT/PATCH)
+  if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
+    console.log(`   Body:`, JSON.stringify(req.body, null, 2));
+  }
+
+  // Capture response
+  const originalJson = res.json.bind(res);
+  res.json = function (body: any) {
+    const duration = Date.now() - startTime;
+    console.log(`📤 Response (${res.statusCode}) - ${duration}ms`);
+    console.log(`   Body:`, JSON.stringify(body, null, 2));
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    return originalJson(body);
+  };
+
   next();
 });
 

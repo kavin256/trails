@@ -94,8 +94,15 @@ Each app under `apps/` will have its own `package.json` and can be developed ind
 - ✓ Incremental sync support (filtering by `since` timestamp)
 - ✓ First-time sync support (returns all trips when `lastSyncedAt` is null)
 - ✓ Soft delete support (trips with `deleted: true` remain in store)
-- Implement database layer (PostgreSQL or SQLite) for persistence
-- Add background sync to mobile app when online
+- ✓ Implemented manual two-way sync in mobile app:
+  - "Sync" button on trips list screen
+  - Pushes all local trips to `POST /trips/batch`
+  - Uses `lastSyncedAt` (persisted in AsyncStorage) for incremental sync
+  - Applies `serverChanges` to local SQLite (upserts and deletes)
+  - Updates `lastSyncedAt` with `serverTime` after successful sync
+  - Refreshes UI from SQLite to show synced changes
+- Implement database layer (PostgreSQL or SQLite) for backend persistence
+- Add automatic background sync to mobile app when online
 
 ## API & Sync Design
 
