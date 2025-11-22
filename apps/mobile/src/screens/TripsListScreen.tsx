@@ -1,15 +1,25 @@
-import React from 'react';
-import { FlatList, TouchableOpacity, View, Text, StyleSheet, Alert } from 'react-native';
+// apps/mobile/src/screens/TripsListScreen.tsx
+import React, { useState } from 'react';
+import {
+  FlatList,
+  TouchableOpacity,
+  View,
+  Text,
+  StyleSheet,
+  Alert,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import Swipeable from 'react-native-gesture-handler/Swipeable';
+import { Swipeable } from 'react-native-gesture-handler';
 import type { RootStackNavigationProp } from '../types/navigation';
 import type { Trip } from '../types/trip';
 import { Screen } from '../components/Screen';
 import { useTrips } from '../context/TripsContext';
+import { pushAllTripsToServer } from '../sync/tripsSync';
 
 export const TripsListScreen: React.FC = () => {
   const navigation = useNavigation<RootStackNavigationProp>();
   const { trips, deleteTrip } = useTrips();
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const handleTripPress = (tripId: string) => {
     navigation.navigate('TripDetails', { tripId });
@@ -43,30 +53,45 @@ export const TripsListScreen: React.FC = () => {
     );
   };
 
-  const renderRightActions = (trip: Trip) => {
-    return (
-      <View style={styles.deleteActionContainer}>
-        <TouchableOpacity
-          style={styles.deleteAction}
-          onPress={() => handleDeleteTrip(trip)}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.deleteText}>Delete</Text>
-        </TouchableOpacity>
-      </View>
-    );
+  const handleSync = async () => {
+    try {
+      setIsSyncing(true);
+      await pushAllTripsToServer();
+      Alert.alert('Sync complete', 'Trips have been pushed to the server.');
+    } catch (error) {
+      console.error(error);
+      Alert.alert(
+        'Sync failed',
+        'Could not sync trips. Please check your connection and API_BASE_URL.'
+      );
+    } finally {
+      setIsSyncing(false);
+    }
   };
+
+  const renderRightActions = (trip: Trip) => (
+    <View style={styles.deleteActionContainer}>
+      <TouchableOpacity
+        style={styles.deleteAction}
+        onPress={() => handleDeleteTrip(trip)}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.deleteText}>Delete</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   const renderTripItem = ({ item }: { item: Trip }) => (
     <Swipeable
       renderRightActions={() => renderRightActions(item)}
       overshootRight={false}
-      friction={3}
+      friction={2}
     >
       <View style={styles.tripCard}>
         <TouchableOpacity
           onPress={() => handleTripPress(item.id)}
           activeOpacity={0.7}
+          style={{ flex: 1 }}
         >
           <Text style={styles.tripTitle}>{item.title}</Text>
           <Text style={styles.tripDestination}>{item.destination}</Text>
@@ -83,9 +108,28 @@ export const TripsListScreen: React.FC = () => {
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>My Trips</Text>
-          <TouchableOpacity style={styles.addButton} onPress={handleAddTrip}>
-            <Text style={styles.addButtonText}>+ New Trip</Text>
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={[
+                styles.syncButton,
+                isSyncing && styles.syncButtonDisabled,
+              ]}
+              onPress={handleSync}
+              disabled={isSyncing}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.syncButtonText}>
+                {isSyncing ? 'Syncing…' : 'Sync'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={handleAddTrip}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.addButtonText}>+ New Trip</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <FlatList
@@ -116,6 +160,25 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  syncButton: {
+    backgroundColor: '#34C759',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  syncButtonDisabled: {
+    opacity: 0.6,
+  },
+  syncButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   addButton: {
     backgroundColor: '#007AFF',
     paddingHorizontal: 16,
@@ -135,10 +198,10 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   tripTitle: {
     fontSize: 18,
@@ -156,16 +219,15 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   deleteActionContainer: {
-    justifyContent: 'center',
+    width: 100,
   },
   deleteAction: {
     backgroundColor: '#f44336',
     justifyContent: 'center',
     alignItems: 'center',
-    width: 100,
-    height: '100%',
-    borderRadius: 12,
-    marginLeft: 8,
+    flex: 1,
+    borderTopRightRadius: 12,
+    borderBottomRightRadius: 12,
   },
   deleteText: {
     color: '#fff',
