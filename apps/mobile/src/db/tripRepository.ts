@@ -30,9 +30,20 @@ export const init = async (): Promise<void> => {
         startDate TEXT NOT NULL,
         endDate TEXT NOT NULL,
         notes TEXT,
-        updatedAt INTEGER NOT NULL
+        updatedAt INTEGER NOT NULL,
+        deleted INTEGER NOT NULL DEFAULT 0
       );
     `);
+
+    // Add deleted column to existing databases (best-effort migration)
+    try {
+      await database.execAsync(`
+        ALTER TABLE trips ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0;
+      `);
+    } catch (error) {
+      // Column may already exist; ignore error
+      console.log('Info: "deleted" column may already exist');
+    }
 
     console.log('Database initialized successfully');
   } catch (error) {
@@ -42,9 +53,26 @@ export const init = async (): Promise<void> => {
 };
 
 /**
- * Get all trips from the database
+ * Get all non-deleted trips from the database (for UI display)
  */
 export const getAllTrips = async (): Promise<Trip[]> => {
+  try {
+    const database = getDatabase();
+    const result = await database.getAllAsync<Trip>(
+      'SELECT * FROM trips WHERE deleted = 0 ORDER BY updatedAt DESC'
+    );
+
+    return result.map(mapRowToTrip);
+  } catch (error) {
+    console.error('Error getting all trips:', error);
+    return [];
+  }
+};
+
+/**
+ * Get all trips including deleted ones (for sync purposes)
+ */
+export const getAllTripsForSync = async (): Promise<Trip[]> => {
   try {
     const database = getDatabase();
     const result = await database.getAllAsync<Trip>(
@@ -53,7 +81,7 @@ export const getAllTrips = async (): Promise<Trip[]> => {
 
     return result.map(mapRowToTrip);
   } catch (error) {
-    console.error('Error getting all trips:', error);
+    console.error('Error getting all trips for sync:', error);
     return [];
   }
 };
@@ -84,8 +112,8 @@ export const insertTrip = async (trip: Trip): Promise<void> => {
     const database = getDatabase();
 
     await database.runAsync(
-      `INSERT INTO trips (id, title, destination, startDate, endDate, notes, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO trips (id, title, destination, startDate, endDate, notes, updatedAt, deleted)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         trip.id,
         trip.title,
@@ -94,6 +122,7 @@ export const insertTrip = async (trip: Trip): Promise<void> => {
         trip.endDate,
         trip.notes || null,
         trip.updatedAt,
+        trip.deleted ? 1 : 0,
       ]
     );
 
@@ -113,7 +142,7 @@ export const updateTrip = async (id: string, trip: Trip): Promise<void> => {
 
     await database.runAsync(
       `UPDATE trips
-       SET title = ?, destination = ?, startDate = ?, endDate = ?, notes = ?, updatedAt = ?
+       SET title = ?, destination = ?, startDate = ?, endDate = ?, notes = ?, updatedAt = ?, deleted = ?
        WHERE id = ?`,
       [
         trip.title,
@@ -122,6 +151,7 @@ export const updateTrip = async (id: string, trip: Trip): Promise<void> => {
         trip.endDate,
         trip.notes || null,
         trip.updatedAt,
+        trip.deleted ? 1 : 0,
         id,
       ]
     );
@@ -134,17 +164,23 @@ export const updateTrip = async (id: string, trip: Trip): Promise<void> => {
 };
 
 /**
- * Delete a trip from the database
+ * Soft delete a trip (mark as deleted without removing from database)
  */
 export const deleteTrip = async (id: string): Promise<void> => {
   try {
     const database = getDatabase();
+    const now = Date.now();
 
-    await database.runAsync('DELETE FROM trips WHERE id = ?', [id]);
+    await database.runAsync(
+      `UPDATE trips
+       SET deleted = 1, updatedAt = ?
+       WHERE id = ?`,
+      [now, id]
+    );
 
-    console.log('Trip deleted successfully:', id);
+    console.log('Trip soft-deleted successfully:', id);
   } catch (error) {
-    console.error('Error deleting trip:', error);
+    console.error('Error soft-deleting trip:', error);
     throw error;
   }
 };
@@ -161,5 +197,6 @@ const mapRowToTrip = (row: any): Trip => {
     endDate: row.endDate,
     notes: row.notes || undefined,
     updatedAt: row.updatedAt,
+    deleted: row.deleted ? true : false,
   };
 };

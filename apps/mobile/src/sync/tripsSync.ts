@@ -1,6 +1,6 @@
 import { API_BASE_URL } from '../config/api';
 import {
-  getAllTrips,
+  getAllTripsForSync,
   getTripById,
   insertTrip,
   updateTrip,
@@ -40,6 +40,7 @@ async function upsertTripFromServer(serverTrip: TripDTO): Promise<void> {
     endDate: serverTrip.endDate,
     notes: serverTrip.notes,
     updatedAt: serverTrip.updatedAt, // Use server-controlled timestamp
+    deleted: serverTrip.deleted,
   };
 
   const existing = await getTripById(serverTrip.id);
@@ -66,28 +67,40 @@ export async function syncTripsOnce(): Promise<void> {
   // Step 1: Read last sync timestamp
   const lastSyncedAt = await getLastSyncedAt();
 
-  // Step 2: Read all local trips
-  const localTrips: Trip[] = await getAllTrips();
+  // Step 2: Read all local trips (including soft-deleted ones for sync)
+  const localTrips: Trip[] = await getAllTripsForSync();
 
-  // Step 3: Filter to only trips modified since last sync (incremental)
-  const modifiedTrips =
-    lastSyncedAt === null
-      ? localTrips // First sync: send all trips
-      : localTrips.filter((trip) => trip.updatedAt > lastSyncedAt); // Subsequent: only modified
-
-  // Step 3b: Map to TripDTOs (deleted: false for now, until delete sync is wired)
-  const changes: TripDTO[] = modifiedTrips.map((trip) => ({
-    ...trip,
-    deleted: false,
+  // Step 3: Always send all local trips to the server
+  // Reason: device clocks can drift, and comparing trip.updatedAt (device time)
+  // with lastSyncedAt (server time) can cause missed pushes. The backend
+  // uses server-controlled updatedAt and lastSyncedAt for correctness.
+  const changes: TripDTO[] = localTrips.map((trip) => ({
+    id: trip.id,
+    title: trip.title,
+    destination: trip.destination,
+    startDate: trip.startDate,
+    endDate: trip.endDate,
+    notes: trip.notes,
+    updatedAt: trip.updatedAt,
+    deleted: trip.deleted, // Include actual deleted status
   }));
 
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('🔄 Starting sync...');
-  console.log(`   lastSyncedAt: ${lastSyncedAt === null ? 'null (first sync)' : new Date(lastSyncedAt).toISOString()}`);
+  console.log(
+    `   lastSyncedAt: ${
+      lastSyncedAt === null
+        ? 'null (first sync)'
+        : new Date(lastSyncedAt).toISOString()
+    }`
+  );
   console.log(`   Total local trips: ${localTrips.length}`);
-  console.log(`   Sending ${changes.length} changed trips to server`);
+  console.log(`   Sending ${changes.length} trips to server`);
   if (changes.length > 0) {
-    console.log(`   Trip IDs being sent:`, changes.map(t => t.id).join(', '));
+    console.log(
+      '   Trip IDs being sent:',
+      changes.map((t) => t.id).join(', ')
+    );
   }
 
   // Step 4: POST to server
@@ -143,11 +156,17 @@ export async function syncTripsOnce(): Promise<void> {
  * Legacy push-only function (kept for backwards compatibility if needed)
  */
 export async function pushAllTripsToServer(): Promise<BatchResponse> {
-  const localTrips: Trip[] = await getAllTrips();
+  const localTrips: Trip[] = await getAllTripsForSync();
 
   const changes: TripDTO[] = localTrips.map((trip) => ({
-    ...trip,
-    deleted: false,
+    id: trip.id,
+    title: trip.title,
+    destination: trip.destination,
+    startDate: trip.startDate,
+    endDate: trip.endDate,
+    notes: trip.notes,
+    updatedAt: trip.updatedAt,
+    deleted: trip.deleted,
   }));
 
   const res = await fetch(`${API_BASE_URL}/trips/batch`, {

@@ -6,8 +6,8 @@ interface TripsContextValue {
   trips: Trip[];
   isLoading: boolean;
   getTripById: (id: string) => Trip | undefined;
-  addTrip: (data: Omit<Trip, 'id' | 'updatedAt'>) => void;
-  updateTrip: (id: string, data: Partial<Omit<Trip, 'id' | 'updatedAt'>>) => void;
+  addTrip: (data: Omit<Trip, 'id' | 'updatedAt' | 'deleted'>) => void;
+  updateTrip: (id: string, data: Partial<Omit<Trip, 'id' | 'updatedAt' | 'deleted'>>) => void;
   deleteTrip: (id: string) => Promise<void>;
   refreshFromDb: () => Promise<void>;
 }
@@ -24,6 +24,7 @@ const INITIAL_TRIPS: Trip[] = [
     endDate: '2025-07-25',
     notes: 'Beach resort and temple tours',
     updatedAt: Date.now() - 86400000 * 7, // 7 days ago
+    deleted: false,
   },
   {
     id: '2',
@@ -33,6 +34,7 @@ const INITIAL_TRIPS: Trip[] = [
     endDate: '2025-08-13',
     notes: 'Tech conference downtown',
     updatedAt: Date.now() - 86400000 * 3, // 3 days ago
+    deleted: false,
   },
   {
     id: '3',
@@ -41,6 +43,7 @@ const INITIAL_TRIPS: Trip[] = [
     startDate: '2025-09-05',
     endDate: '2025-09-07',
     updatedAt: Date.now() - 86400000, // 1 day ago
+    deleted: false,
   },
 ];
 
@@ -88,11 +91,12 @@ export const TripsProvider: React.FC<TripsProviderProps> = ({ children }) => {
     return trips.find((trip) => trip.id === id);
   };
 
-  const addTrip = (data: Omit<Trip, 'id' | 'updatedAt'>): void => {
+  const addTrip = (data: Omit<Trip, 'id' | 'updatedAt' | 'deleted'>): void => {
     const newTrip: Trip = {
       ...data,
       id: Date.now().toString(),
       updatedAt: Date.now(),
+      deleted: false,
     };
 
     // Save to database
@@ -108,7 +112,7 @@ export const TripsProvider: React.FC<TripsProviderProps> = ({ children }) => {
 
   const updateTrip = (
     id: string,
-    data: Partial<Omit<Trip, 'id' | 'updatedAt'>>
+    data: Partial<Omit<Trip, 'id' | 'updatedAt' | 'deleted'>>
   ): void => {
     // Find existing trip to merge with updates
     const existingTrip = trips.find((trip) => trip.id === id);
@@ -121,6 +125,7 @@ export const TripsProvider: React.FC<TripsProviderProps> = ({ children }) => {
       ...existingTrip,
       ...data,
       updatedAt: Date.now(),
+      deleted: existingTrip.deleted, // preserve existing deleted status
     };
 
     // Save to database

@@ -9,4 +9,5 @@ export type Trip = {
   endDate: string;
   notes?: string;
   updatedAt: number;
+  deleted: boolean; // soft delete flag
 };

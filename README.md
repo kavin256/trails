@@ -84,33 +84,43 @@ Each app under `apps/` will have its own `package.json` and can be developed ind
 
 ### Next Steps
 
-**Phase 6: Sync & Backend** (In Progress)
+**Phase 6: Sync & Backend** ✓ Complete
 - ✓ Created Express + TypeScript backend skeleton under `apps/api`
 - ✓ Added `/health` endpoint for monitoring
 - ✓ Implemented `GET /trips` and `POST /trips/batch` endpoints
 - ✓ Defined `TripDTO` type matching the API contract
-- ✓ Created in-memory Trip store with last-writer-wins behavior
+- ✓ Implemented SQLite database for persistent trip storage
 - ✓ Server-controlled timestamp assignment (ignores client `updatedAt`, uses `Date.now()`)
 - ✓ Incremental sync support (filtering by `since` timestamp)
 - ✓ First-time sync support (returns all trips when `lastSyncedAt` is null)
-- ✓ Soft delete support (trips with `deleted: true` remain in store)
+- ✓ Soft delete support (trips with `deleted: true` remain in database)
+- ✓ Last-writer-wins conflict resolution using server timestamps
+- ✓ WAL mode for better concurrency and durability
+- ✓ Data survives server restarts (persisted to `apps/api/data/trails-api.sqlite`)
 - ✓ Implemented manual two-way sync in mobile app:
-  - "Sync" button on trips list screen
-  - Pushes all local trips to `POST /trips/batch`
-  - Uses `lastSyncedAt` (persisted in AsyncStorage) for incremental sync
+  - "Sync" button on trips list screen triggers full bidirectional sync
+  - Always pushes ALL local trips to `POST /trips/batch` (avoids device clock drift issues)
+  - Server uses last-writer-wins with server-controlled timestamps to handle duplicates
+  - Uses `lastSyncedAt` (persisted in AsyncStorage) for incremental pull from server
+  - First-time sync sends all local trips and receives all server trips
   - Applies `serverChanges` to local SQLite (upserts and deletes)
   - Updates `lastSyncedAt` with `serverTime` after successful sync
   - Refreshes UI from SQLite to show synced changes
-- Implement database layer (PostgreSQL or SQLite) for backend persistence
+  - "Clear Sync" button resets sync state to force full sync (useful when backend restarts)
+
+**Phase 7: Future Enhancements**
 - Add automatic background sync to mobile app when online
+- Implement authentication and multi-user support
+- Add conflict detection and resolution UI
+- Enhanced data validation
 
 ## API & Sync Design
 
-The Trails backend (to be implemented in `apps/api`) will provide a REST API for syncing trip data across devices while maintaining the offline-first architecture.
+The Trails backend (`apps/api`) provides a REST API for syncing trip data across devices while maintaining the offline-first architecture. Trip data is persisted to a SQLite database with WAL mode for durability.
 
 ### API Endpoints
 
-The backend will expose two primary endpoints:
+The backend exposes two primary endpoints:
 
 **`GET /trips?since=<timestamp>`**
 - Retrieve trips from the server
@@ -162,15 +172,17 @@ The server is the single source of truth for all `updatedAt` timestamps. When th
 
 The mobile app follows this high-level sync flow:
 
-1. **Collect local changes**: Query SQLite for all trips modified since last sync (`updatedAt > lastSyncedAt`)
-2. **Push to server**: Send local changes via `POST /trips/batch` with the last sync timestamp
-3. **Server applies changes**: Server uses last-writer-wins to merge incoming changes with its database
+1. **Collect local trips**: Query SQLite for all trips
+2. **Push to server**: Send all local trips via `POST /trips/batch` with the last sync timestamp
+3. **Server applies changes**: Server uses last-writer-wins (based on server timestamps) to merge incoming changes with its database
 4. **Receive server changes**: Server returns any trips modified by other clients since `lastSyncedAt`
 5. **Merge locally**: Client updates SQLite with server changes and updates `lastSyncedAt` to `serverTime`
 
+**Why push all trips?** The client always sends all local trips (not just modified ones) to avoid bugs caused by device clock drift. When a device's clock is behind server time, comparing `trip.updatedAt` (device time) with `lastSyncedAt` (server time) can cause trips to be skipped. The backend's last-writer-wins logic efficiently handles duplicate pushes using server-controlled timestamps.
+
 **First-time sync**: When `lastSyncedAt` is `null`, the client sends all local trips, and the server returns all server trips. Both sides merge using last-writer-wins.
 
-**Incremental sync**: On subsequent syncs, only trips modified since the last sync timestamp are transferred, minimizing bandwidth.
+**Incremental pull**: The server only returns trips modified since `lastSyncedAt` in `serverChanges`, minimizing bandwidth for downloads. The client pushes all trips but the server's LWW logic ensures only actual changes update the database.
 
 ### Offline-First Architecture
 
@@ -202,7 +214,7 @@ Then scan the QR code with Expo Go on your mobile device.
 
 ## Backend (apps/api)
 
-The `apps/api` directory contains a Node.js Express + TypeScript backend service that will provide the Trip sync API.
+The `apps/api` directory contains a Node.js Express + TypeScript backend service that provides the Trip sync API with persistent SQLite storage.
 
 ### Running the Backend
 
@@ -238,7 +250,7 @@ Or open `http://localhost:4000/health` in your browser.
 
 ---
 
-**Stub sync endpoints are now available:**
+**Sync endpoints:**
 
 **`GET /trips?since=<timestamp>`**
 
@@ -313,25 +325,26 @@ curl -X POST http://localhost:4000/trips/batch \
 
 **Implementation Status:**
 
-The `/trips` endpoints now use an **in-memory Trip store** that implements real last-writer-wins behavior with server-controlled timestamps:
+The `/trips` endpoints now use a **SQLite database** that implements real last-writer-wins behavior with server-controlled timestamps:
 
+- **Persistent storage**: Trip data is stored in `apps/api/data/trails-api.sqlite` and survives server restarts
 - **Server-controlled timestamps**: The server ignores client-provided `updatedAt` values and always assigns timestamps using `Date.now()`, ensuring the server is the single source of truth
 - **Last-writer-wins**: When a client pushes a trip change, the server replaces any existing trip with the same ID, using arrival order to determine "last"
 - **Incremental sync**: `GET /trips?since=<timestamp>` returns only trips with `updatedAt > since` (server timestamps)
 - **First-time sync**: `POST /trips/batch` with `lastSyncedAt: null` returns all trips in `serverChanges`
-- **Soft deletes**: Trips with `deleted: true` remain in the store and sync to all devices
+- **Soft deletes**: Trips with `deleted: true` remain in the database and sync to all devices
+- **WAL mode**: Database uses Write-Ahead Logging for better concurrency and durability
 
-**Limitations:**
-- Data is **not persisted** across server restarts (in-memory only)
+**Current Limitations:**
 - No conflict detection (conflicts array is always empty)
 - No authentication or authorization
+- Single-user / development setup (no multi-tenancy)
 
 ### Next Steps for Backend
 
-The sync endpoints now implement real last-writer-wins logic with server-controlled timestamps. The next phase will add:
+The sync endpoints now implement real last-writer-wins logic with server-controlled timestamps and persistent SQLite storage. Future enhancements:
 
-- **Database layer** (PostgreSQL or SQLite) for persistent trip storage (replacing the in-memory store)
 - **Enhanced validation** of incoming trip data
-- **Better error handling** for invalid requests and database failures
 - **Conflict detection** (optional) to populate the `conflicts` array when appropriate
-- **Authentication** (future) to ensure users only access their own trips
+- **Authentication** to ensure users only access their own trips
+- **Multi-user support** with user isolation

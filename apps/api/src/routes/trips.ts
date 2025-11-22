@@ -1,6 +1,11 @@
 import express, { Request, Response } from 'express';
 import { TripDTO } from '../types/trip.js';
-import { getTripsSince, applyBatch } from '../store/tripsStore.js';
+import {
+  getTripsForIncrementalSync,
+  upsertTripFromClient,
+  toTripDTO,
+  TripRecord,
+} from '../db/tripRepository.js';
 
 const router = express.Router();
 
@@ -8,51 +13,102 @@ const router = express.Router();
  * GET /trips?since=<timestamp>
  * Retrieve trips from the server with optional incremental sync
  */
-router.get('/', (req: Request, res: Response) => {
-  // Parse optional 'since' query parameter
-  let since: number | undefined;
-  if (req.query.since) {
-    const parsed = Number(req.query.since);
-    since = isNaN(parsed) ? undefined : parsed;
+router.get('/', async (req: Request, res: Response) => {
+  try {
+    // Parse optional 'since' query parameter
+    let since: number | null = null;
+    if (req.query.since) {
+      const parsed = Number(req.query.since);
+      since = isNaN(parsed) ? null : parsed;
+    }
+
+    // Get trips from SQLite database
+    const records = await getTripsForIncrementalSync(since);
+    const trips = records.map(toTripDTO);
+
+    // Return trips with current server time
+    res.json({
+      trips,
+      serverTime: Date.now(),
+    });
+  } catch (error) {
+    console.error('Error in GET /trips:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
-
-  // Get trips from the in-memory store
-  const trips = getTripsSince(since);
-
-  // Return trips with current server time
-  res.json({
-    trips,
-    serverTime: Date.now(),
-  });
 });
 
 /**
  * POST /trips/batch
  * Push local changes to the server and receive server-side changes
  */
-router.post('/batch', (req: Request, res: Response) => {
-  const { clientId, lastSyncedAt, changes } = req.body;
+router.post('/batch', async (req: Request, res: Response) => {
+  try {
+    const { clientId, lastSyncedAt, changes } = req.body;
 
-  // Validate required fields
-  if (!clientId) {
-    return res.status(400).json({
-      error: 'Invalid request: clientId is required',
+    // Validate required fields
+    if (!clientId) {
+      return res.status(400).json({
+        error: 'Invalid request: clientId is required',
+      });
+    }
+
+    // Ensure changes is an array (default to empty array if missing)
+    const changesList: TripDTO[] = Array.isArray(changes) ? changes : [];
+
+    // Parse lastSyncedAt
+    const lastSynced: number | null =
+      typeof lastSyncedAt === 'number' ? lastSyncedAt : null;
+
+    // Apply changes to SQLite database
+    const applied: { id: string; status: 'created' | 'updated' | 'deleted' }[] = [];
+
+    for (const change of changesList) {
+      // Get existing trip to determine status
+      const existingRecords = await getTripsForIncrementalSync(null);
+      const existing = existingRecords.find((r) => r.id === change.id);
+
+      // Upsert the trip with server-controlled timestamp
+      await upsertTripFromClient({
+        id: change.id,
+        title: change.title,
+        destination: change.destination,
+        startDate: change.startDate,
+        endDate: change.endDate,
+        notes: change.notes,
+        deleted: !!change.deleted,
+      });
+
+      // Determine status for applied array
+      let status: 'created' | 'updated' | 'deleted';
+      if (change.deleted) {
+        status = 'deleted';
+      } else if (existing) {
+        status = 'updated';
+      } else {
+        status = 'created';
+      }
+
+      applied.push({ id: change.id, status });
+    }
+
+    // Compute server time
+    const serverTime = Date.now();
+
+    // Get server changes (trips modified since client's lastSyncedAt)
+    const serverChangeRecords = await getTripsForIncrementalSync(lastSynced);
+    const serverChanges = serverChangeRecords.map(toTripDTO);
+
+    // Return response matching the API contract
+    res.json({
+      applied,
+      conflicts: [], // No conflict detection in this implementation
+      serverChanges,
+      serverTime,
     });
+  } catch (error) {
+    console.error('Error in POST /trips/batch:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
-
-  // Ensure changes is an array (default to empty array if missing)
-  const changesList: TripDTO[] = Array.isArray(changes) ? changes : [];
-
-  // Apply changes using the in-memory store with server-controlled timestamps
-  const result = applyBatch(changesList, lastSyncedAt);
-
-  // Return response matching the API contract
-  res.json({
-    applied: result.applied,
-    conflicts: [], // No conflict detection in this implementation
-    serverChanges: result.serverChanges,
-    serverTime: result.serverTime,
-  });
 });
 
 export const tripsRouter = router;

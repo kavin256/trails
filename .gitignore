@@ -52,3 +52,6 @@ Thumbs.db
 .cache/
 tmp/
 temp/
+
+# Database files
+apps/api/data/
