@@ -8,7 +8,11 @@ import { TripDTO } from '../types/trip.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const dbFile = path.join(__dirname, '../../data/trails-api.sqlite');
+// Use different database for tests vs development/production
+const isTest = process.env.NODE_ENV === 'test';
+const dbFile = isTest
+  ? path.join(__dirname, '../../data/trails-api.test.sqlite')
+  : path.join(__dirname, '../../data/trails-api.sqlite');
 
 // Ensure data directory exists
 fs.mkdirSync(path.dirname(dbFile), { recursive: true });
@@ -191,6 +195,15 @@ export function toTripDTO(record: TripRecord): TripDTO {
     updatedAt: record.updatedAt,
     deleted: !!record.deleted,
   };
+}
+
+/**
+ * Clear all trips from the database (for testing only)
+ * WARNING: This deletes all data - use only in tests!
+ */
+export async function clearAllTrips(): Promise<void> {
+  const database = await getDb();
+  await database.run('DELETE FROM trips');
 }
 
 // Initialize database on module load
