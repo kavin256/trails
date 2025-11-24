@@ -1,5 +1,5 @@
 // apps/mobile/src/screens/TripsListScreen.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   FlatList,
   TouchableOpacity,
@@ -7,6 +7,7 @@ import {
   Text,
   StyleSheet,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -15,12 +16,26 @@ import type { Trip } from '../types/trip';
 import { Screen } from '../components/Screen';
 import { useTrips } from '../context/TripsContext';
 import { syncTripsOnce } from '../sync/tripsSync';
-import { clearLastSyncedAt } from '../sync/syncState';
+import { clearLastSyncedAt, getLastSyncedAt } from '../sync/syncState';
 
 export const TripsListScreen: React.FC = () => {
   const navigation = useNavigation<RootStackNavigationProp>();
   const { trips, deleteTrip, refreshFromDb } = useTrips();
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAtState] = useState<number | null>(null);
+
+  useEffect(() => {
+    const loadLastSynced = async () => {
+      try {
+        const value = await getLastSyncedAt();
+        setLastSyncedAtState(value);
+      } catch (error) {
+        console.error('Error loading lastSyncedAt:', error);
+      }
+    };
+
+    loadLastSynced();
+  }, []);
 
   const handleTripPress = (tripId: string) => {
     navigation.navigate('TripDetails', { tripId });
@@ -54,17 +69,16 @@ export const TripsListScreen: React.FC = () => {
     );
   };
 
-  const handleSync = async () => {
+  const handleRefresh = async () => {
     try {
-      setIsSyncing(true);
+      setIsRefreshing(true);
       // Perform two-way sync: push local changes + pull server changes
       await syncTripsOnce();
       // Refresh the UI from SQLite (which now includes server changes)
       await refreshFromDb();
-      Alert.alert(
-        'Sync complete',
-        'Your trips have been synced with the server.'
-      );
+      // Update lastSyncedAt from persisted state
+      const value = await getLastSyncedAt();
+      setLastSyncedAtState(value);
     } catch (error) {
       console.error(error);
       Alert.alert(
@@ -72,7 +86,7 @@ export const TripsListScreen: React.FC = () => {
         'Could not sync trips. Please check your connection and API_BASE_URL.'
       );
     } finally {
-      setIsSyncing(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -91,6 +105,7 @@ export const TripsListScreen: React.FC = () => {
           onPress: async () => {
             try {
               await clearLastSyncedAt();
+              setLastSyncedAtState(null);
               Alert.alert(
                 'Success',
                 'Sync state cleared. Next sync will be a full sync.'
@@ -152,19 +167,6 @@ export const TripsListScreen: React.FC = () => {
               <Text style={styles.clearSyncText}>Clear Sync</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[
-                styles.syncButton,
-                isSyncing && styles.syncButtonDisabled,
-              ]}
-              onPress={handleSync}
-              disabled={isSyncing}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.syncButtonText}>
-                {isSyncing ? 'Syncing…' : 'Sync'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
               style={styles.addButton}
               onPress={handleAddTrip}
               activeOpacity={0.7}
@@ -174,12 +176,28 @@ export const TripsListScreen: React.FC = () => {
           </View>
         </View>
 
+        <View style={styles.syncStatusRow}>
+          {lastSyncedAt === null ? (
+            <Text style={styles.lastSyncedText}>Not synced yet</Text>
+          ) : (
+            <Text style={styles.lastSyncedText}>
+              Last synced: {new Date(lastSyncedAt).toLocaleString()}
+            </Text>
+          )}
+        </View>
+
         <FlatList
           data={trips}
           keyExtractor={(item) => item.id}
           renderItem={renderTripItem}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+            />
+          }
         />
       </View>
     </Screen>
@@ -195,7 +213,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 4,
   },
   headerTitle: {
     fontSize: 28,
@@ -207,6 +225,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  syncStatusRow: {
+    marginBottom: 12,
+  },
+  lastSyncedText: {
+    fontSize: 12,
+    color: '#666',
+  },
   clearSyncButton: {
     backgroundColor: '#FF9500',
     paddingHorizontal: 10,
@@ -216,20 +241,6 @@ const styles = StyleSheet.create({
   clearSyncText: {
     color: '#fff',
     fontSize: 12,
-    fontWeight: '600',
-  },
-  syncButton: {
-    backgroundColor: '#34C759',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  syncButtonDisabled: {
-    opacity: 0.6,
-  },
-  syncButtonText: {
-    color: '#fff',
-    fontSize: 14,
     fontWeight: '600',
   },
   addButton: {
