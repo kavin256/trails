@@ -8,27 +8,27 @@ import { TripDTO } from '../types/trip.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Use different database for tests vs development/production
 const isTest = process.env.NODE_ENV === 'test';
-// 1️⃣ Render production DB path (most important)
-const renderDbPath = "/var/data/trails-api.sqlite";
 
-// 2️⃣ Local development path
-const localDbPath = path.join(__dirname, "../../data/trails-api.sqlite");
+// Base data directory: inside the project directory (works locally + on Render)
+const defaultDataDir = path.join(__dirname, '../../data');
 
-// 3️⃣ Test DB path
-const testDbPath = path.join(__dirname, "../../data/trails-api.test.sqlite");
+// Optional override from env (if you ever want a custom path)
+const envDbFile = process.env.DB_FILE_PATH;
 
-// 4️⃣ Final DB file selection logic
+// Decide file names
+const defaultMainDbFile = path.join(defaultDataDir, 'trails-api.sqlite');
+const defaultTestDbFile = path.join(defaultDataDir, 'trails-api.test.sqlite');
+
+// Final DB file path
 const dbFile =
-  process.env.DB_FILE_PATH ||        // Allows overriding (Render, Railway, Docker)
-  (isTest ? testDbPath :             // Use test DB when running tests
-    (process.env.RENDER ? renderDbPath : localDbPath));  // Detect Render
+  envDbFile ??
+  (isTest ? defaultTestDbFile : defaultMainDbFile);
 
-// Ensure directory exists (local + Render)
+// Ensure directory exists
 fs.mkdirSync(path.dirname(dbFile), { recursive: true });
 
-console.log("Using SQLite database:", dbFile);
+console.log('Using SQLite database:', dbFile);
 
 /**
  * TripRecord - Database row representation
