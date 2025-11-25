@@ -211,6 +211,16 @@ export function toTripDTO(record: TripRecord): TripDTO {
 }
 
 /**
+ * Permanently delete all soft-deleted trips from the database
+ * @returns Number of trips permanently deleted
+ */
+export async function permanentlyDeleteSoftDeletedTrips(): Promise<number> {
+  const database = await getDb();
+  const result = await database.run('DELETE FROM trips WHERE deleted = 1');
+  return result.changes || 0;
+}
+
+/**
  * Clear all trips from the database (for testing only)
  * WARNING: This deletes all data - use only in tests!
  */

@@ -5,6 +5,7 @@ import {
   upsertTripFromClient,
   toTripDTO,
   TripRecord,
+  permanentlyDeleteSoftDeletedTrips,
 } from '../db/tripRepository.js';
 
 const router = express.Router();
@@ -107,6 +108,24 @@ router.post('/batch', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error in POST /trips/batch:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * DELETE /trips/cleanup
+ * Permanently delete all soft-deleted trips from the database
+ */
+router.delete('/cleanup', async (req: Request, res: Response) => {
+  try {
+    const deletedCount = await permanentlyDeleteSoftDeletedTrips();
+    res.json({
+      message: 'Soft-deleted trips permanently removed',
+      deletedCount,
+      serverTime: Date.now(),
+    });
+  } catch (error) {
+    console.error('Error in DELETE /trips/cleanup:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
