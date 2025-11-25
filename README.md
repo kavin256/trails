@@ -1,6 +1,11 @@
 # Trails
 
-A travel planner that works 100% offline and syncs later. An offline-first monorepo containing a React Native mobile app and backend API.
+A travel planner that works completely offline and syncs when you're connected. Plan your trips anytime, anywhere.
+
+**What's inside:**
+- Mobile app (React Native with Expo)
+- Backend API (Node.js + Express)
+- SQLite databases for offline data storage
 
 ## Structure
 
@@ -14,12 +19,10 @@ trails/
 
 ## Getting Started
 
-This project uses npm workspaces to manage multiple packages within a single repository.
+### What You Need
 
-### Prerequisites
-
-- Node.js (v16 or higher recommended)
-- npm (v7 or higher for workspaces support)
+- Node.js (version 16 or higher)
+- npm (version 7 or higher)
 
 ### Installation
 
@@ -27,180 +30,136 @@ This project uses npm workspaces to manage multiple packages within a single rep
 npm install
 ```
 
-This will install dependencies for all workspace packages.
+This installs everything for both the mobile app and API.
 
-## Workspaces
+### Project Organization
 
-The monorepo is organized using npm workspaces, which allows:
-- Shared dependencies across packages
-- Running scripts across all workspaces
-- Simplified dependency management
+This project uses npm workspaces to manage both apps in one place:
+- Both apps share common dependencies
+- Easy to run commands for either app
+- Simpler to keep versions in sync
 
-Each app under `apps/` will have its own `package.json` and can be developed independently while sharing common dependencies at the root level.
+## What's Working
 
-## Development Progress
+### ✓ Mobile App (Complete)
 
-### Completed ✓
+**Basic Setup**
+- Expo + TypeScript app
+- Three main screens: trip list, trip details, and edit/create
+- Native navigation between screens
 
-**Phase 1: Monorepo Setup**
-- ✓ Initialized npm workspaces configuration
-- ✓ Created workspace structure (`apps/mobile`, `apps/api`)
-- ✓ Configured .gitignore for Node.js/React Native projects
+**Trip Management**
+- Create, view, edit, and delete trips
+- Form validation (title and destination required)
+- Date picker for start and end dates
+- Swipe to delete on trip list
+- Delete confirmation dialogs
 
-**Phase 2: Mobile App Foundation**
-- ✓ Scaffolded Expo + TypeScript mobile app under `apps/mobile`
-- ✓ Set up React Navigation with native stack
-- ✓ Implemented three core screens:
-  - `TripsListScreen` - Browse all trips
-  - `TripDetailsScreen` - View trip details
-  - `EditTripScreen` - Create/edit trips
+**Offline Storage**
+- SQLite database stores all trips locally
+- App works completely without internet
+- Data survives app restarts
+- Fast, instant responses (no waiting for network)
 
-**Phase 3: State Management**
-- ✓ Created `Trip` domain type with proper TypeScript definitions
-- ✓ Implemented `TripsContext` with React Context API
-- ✓ Built CRUD operations: `getTripById`, `addTrip`, `updateTrip`, `deleteTrip`
-- ✓ Integrated context across all screens via `useTrips()` hook
+### ✓ Syncing (Complete)
+**Backend API**
+- Express + TypeScript server
+- SQLite database for trip storage
+- Three endpoints: health check, get trips, batch sync, cleanup
+- Deployed to Render at https://trails-avdd.onrender.com/
 
-**Phase 4: Trip Form & Validation**
-- ✓ Implemented full create/edit form in `EditTripScreen`
-- ✓ Added form validation for required fields (title, destination)
-- ✓ Wired up `addTrip` and `updateTrip` operations with context
-- ✓ Trips can be created and edited via the dedicated form
-- ✓ Form prefills data when editing existing trips
-- ✓ Automatic navigation back to previous screen after save
-- ✓ Trip start/end dates are selected via a native date picker (calendar) using `@react-native-community/datetimepicker`, instead of manual text input
+**How Syncing Works**
+- Tap "Sync" button or pull to refresh to sync
+- Sends all your local trips to the server
+- Gets back trips changed on other devices
+- Most recent change wins if there's a conflict
+- Works even if device clock is wrong (server controls timestamps)
+- Deleted trips sync across devices
+- First sync sends and receives everything
+- Later syncs only download what changed
 
-**Phase 5: Local Persistence & Delete Operations**
-- ✓ Integrated SQLite database using `expo-sqlite` for offline storage
-- ✓ Implemented `TripRepository` abstraction layer for data access
-- ✓ Trips are now persisted locally in SQLite, surviving app restarts
-- ✓ Database initialization with automatic table creation
-- ✓ All CRUD operations write to both SQLite and in-memory state
-- ✓ Trips can be deleted from both list and details screens with confirmation dialogs
-- ✓ Trips list supports swipe-to-delete interactions using `react-native-gesture-handler`, providing a native-feeling UX on both iOS and Android
-- ✓ Deletions are persisted to SQLite - removed trips do not reappear after app restarts
-- ✓ App behaves in a fully offline-first manner with local persistence
-- ✓ No changes required to screen components (context abstraction works!)
+**What's Next**
+- Automatic background syncing (currently manual)
+- User accounts and login
+- Better conflict detection
+- More data validation
 
-### Next Steps
-
-**Phase 6: Sync & Backend** ✓ Complete
-- ✓ Created Express + TypeScript backend skeleton under `apps/api`
-- ✓ Added `/health` endpoint for monitoring
-- ✓ Implemented `GET /trips` and `POST /trips/batch` endpoints
-- ✓ Defined `TripDTO` type matching the API contract
-- ✓ Implemented SQLite database for persistent trip storage
-- ✓ Server-controlled timestamp assignment (ignores client `updatedAt`, uses `Date.now()`)
-- ✓ Incremental sync support (filtering by `since` timestamp)
-- ✓ First-time sync support (returns all trips when `lastSyncedAt` is null)
-- ✓ Soft delete support (trips with `deleted: true` remain in database)
-- ✓ Last-writer-wins conflict resolution using server timestamps
-- ✓ WAL mode for better concurrency and durability
-- ✓ Data survives server restarts (persisted to `apps/api/data/trails-api.sqlite`)
-- ✓ Implemented manual two-way sync in mobile app:
-  - "Sync" button on trips list screen triggers full bidirectional sync
-  - Always pushes ALL local trips to `POST /trips/batch` (avoids device clock drift issues)
-  - Server uses last-writer-wins with server-controlled timestamps to handle duplicates
-  - Uses `lastSyncedAt` (persisted in AsyncStorage) for incremental pull from server
-  - First-time sync sends all local trips and receives all server trips
-  - Applies `serverChanges` to local SQLite (upserts and deletes)
-  - Updates `lastSyncedAt` with `serverTime` after successful sync
-  - Refreshes UI from SQLite to show synced changes
-  - "Clear Sync" button resets sync state to force full sync (useful when backend restarts)
-
-**Phase 7: Future Enhancements**
-- Add automatic background sync to mobile app when online
-- Implement authentication and multi-user support
-- Add conflict detection and resolution UI
-- Enhanced data validation
-
-## API & Sync Design
-
-The Trails backend (`apps/api`) provides a REST API for syncing trip data across devices while maintaining the offline-first architecture. Trip data is persisted to a SQLite database with WAL mode for durability.
+## How Syncing Works
 
 ### API Endpoints
 
-The backend exposes two primary endpoints:
+The backend has three main endpoints:
 
 **`GET /trips?since=<timestamp>`**
-- Retrieve trips from the server
-- Optional `since` query parameter for incremental sync (only return trips modified after the given timestamp)
-- Returns `{ trips: TripDTO[], serverTime: number }`
+- Get trips from the server
+- Add `?since=<timestamp>` to only get trips changed after that time
+- Returns list of trips and current server time
 
 **`POST /trips/batch`**
-- Push local changes to the server and receive server-side changes
-- Request body: `{ clientId: string, lastSyncedAt: number | null, changes: TripDTO[] }`
-- Response: `{ applied: {...}[], conflicts: {...}[], serverChanges: TripDTO[], serverTime: number }`
-- Although the client includes `updatedAt` in the payload, the server overrides it with its own timestamp
+- Send your trips and get back changes from other devices
+- Send: your device ID, last sync time, and all your trips
+- Get back: which changes were saved, any conflicts, trips from other devices, server time
 
-### Data Model
+**`DELETE /trips/cleanup`**
+- Permanently remove trips marked as deleted
+- Returns how many trips were removed
+- Warning: This cannot be undone!
 
-Trips are represented using a `TripDTO` that extends the client-side `Trip` type:
+### Trip Data Structure
 
-```typescript
-{
-  id: string;
-  title: string;
-  destination: string;
-  startDate: string;
-  endDate: string;
-  notes?: string;
-  updatedAt: number;    // Unix timestamp (ms) - used for conflict resolution
-  deleted: boolean;     // Soft delete flag
-}
-```
+Each trip has:
+- `id`: Unique identifier
+- `title`: Trip name
+- `destination`: Where you're going
+- `startDate`: When the trip starts (YYYY-MM-DD)
+- `endDate`: When the trip ends (YYYY-MM-DD)
+- `notes`: Optional notes about the trip
+- `updatedAt`: Timestamp (in milliseconds) - used to determine which version is newer
+- `deleted`: True if the trip was deleted (but still in database for syncing)
 
-The `deleted` flag enables **soft deletes**: when a trip is deleted, it's marked `deleted: true` with an updated timestamp rather than being permanently removed. This ensures deletions propagate to all devices during sync.
+### How Conflicts Are Handled
 
-### Conflict Resolution
+When two devices edit the same trip offline:
+- The most recent change wins
+- "Most recent" is based on when changes reach the server, not device time
+- The server controls all timestamps, so wrong device clocks don't break syncing
+- This works well for personal trip planning (conflicts are rare)
 
-The system uses a **last-writer-wins (LWW)** strategy based on the `updatedAt` timestamp:
+Currently, conflicts aren't detected - the last change just wins. Future versions may let you choose which version to keep.
 
-- When the server receives a trip update, it checks if a version already exists in the database
-- The server assigns a new `updatedAt` timestamp using its own clock and stores the trip
-- If the server already has a newer version (based on server timestamps), it rejects the change and returns the server's version to the client
-- This simple strategy works well for personal trip planning where true conflicts (two devices editing the same trip while offline) are rare
-- The backend ignores client timestamps and relies solely on server-generated `updatedAt` values when determining which version wins
+### Sync Process
 
-The initial implementation will use pure last-writer-wins without explicit conflict detection. Future versions may detect conflicts and allow manual resolution.
+When you tap "Sync" or pull to refresh:
 
-### Server-Controlled Timestamps
+1. **Send your trips**: The app sends all local trips to the server
+2. **Server processes them**: The server compares with what it has and keeps the newest versions
+3. **Get changes back**: The server sends trips that changed on other devices
+4. **Update locally**: The app updates its database with changes from the server
+5. **Save sync time**: The app remembers when it last synced (using server time)
 
-The server is the single source of truth for all `updatedAt` timestamps. When the server receives a trip update, it always assigns `updatedAt` using its own clock (`Date.now()`), treating client-provided timestamps as provisional. Only the server's `updatedAt` is used for last-writer-wins conflict resolution, ensuring consistency across all devices. The `lastSyncedAt` value stored on each device is always derived from `serverTime` returned by the API, never from the device's local clock. This design eliminates issues caused by device clock drift, timezone differences, or manually changed phone dates, making the sync protocol robust against incorrect client clocks.
+**Why send all trips?** Sending everything avoids bugs from wrong device clocks. The server efficiently handles duplicates.
 
-### Sync Algorithm
+**First sync**: Sends all your trips, gets back all server trips, merges them together.
 
-The mobile app follows this high-level sync flow:
+**Later syncs**: Sends all your trips, but only downloads trips that changed since last sync (saves bandwidth).
 
-1. **Collect local trips**: Query SQLite for all trips
-2. **Push to server**: Send all local trips via `POST /trips/batch` with the last sync timestamp
-3. **Server applies changes**: Server uses last-writer-wins (based on server timestamps) to merge incoming changes with its database
-4. **Receive server changes**: Server returns any trips modified by other clients since `lastSyncedAt`
-5. **Merge locally**: Client updates SQLite with server changes and updates `lastSyncedAt` to `serverTime`
+### Why Offline-First?
 
-**Why push all trips?** The client always sends all local trips (not just modified ones) to avoid bugs caused by device clock drift. When a device's clock is behind server time, comparing `trip.updatedAt` (device time) with `lastSyncedAt` (server time) can cause trips to be skipped. The backend's last-writer-wins logic efficiently handles duplicate pushes using server-controlled timestamps.
+The app stores everything in SQLite on your device:
 
-**First-time sync**: When `lastSyncedAt` is `null`, the client sends all local trips, and the server returns all server trips. Both sides merge using last-writer-wins.
+- All actions (create, edit, delete) happen locally first
+- Works perfectly without internet
+- Syncing happens when you're online
+- If sync fails, changes stay on your device and sync later
 
-**Incremental pull**: The server only returns trips modified since `lastSyncedAt` in `serverChanges`, minimizing bandwidth for downloads. The client pushes all trips but the server's LWW logic ensures only actual changes update the database.
+Benefits:
+- Instant responses (no waiting for network)
+- Works on planes, in remote areas, anywhere
+- Data stays in sync across devices when online
 
-### Offline-First Architecture
+### More Details
 
-The mobile app treats **SQLite as the primary data store** and functions fully offline:
-
-- All CRUD operations write to SQLite first
-- The app works perfectly without network connectivity
-- Sync is opportunistic: when online, the app syncs changes with the server
-- If sync fails (network unavailable, server error), local changes remain in SQLite and will be sent on the next successful sync
-
-This architecture ensures:
-- Zero latency for user interactions (all reads/writes are local)
-- Reliable operation in low/no connectivity environments
-- Data consistency across devices when online
-
-### Documentation
-
-Full API contract specification: [docs/api-contract.md](docs/api-contract.md)
+Full technical documentation: [docs/api-contract.md](docs/api-contract.md)
 
 ## Running the Mobile App
 
@@ -212,19 +171,68 @@ npm run dev:mobile
 
 Then scan the QR code with Expo Go on your mobile device.
 
-## Backend (apps/api)
+### Connecting to the Backend
 
-The `apps/api` directory contains a Node.js Express + TypeScript backend service that provides the Trip sync API with persistent SQLite storage.
+The app configuration is in `apps/mobile/src/config/api.ts`:
 
-### Running the Backend
+- **When developing** (`__DEV__` mode): Connects to your local computer (e.g., `http://192.168.50.65:4000`)
+- **When built for production**: Connects to deployed server at `https://trails-avdd.onrender.com`
 
-From the repository root:
+To test with the production backend during development, edit the `API_BASE_URL` in that file.
+
+## Backend API
+
+The backend is a Node.js + Express + TypeScript server that syncs trips across devices.
+
+### Run Locally
+
+From the project root:
 
 ```bash
 npm run dev:api
 ```
 
-The server will start on port 4000 (or the port specified in the `PORT` environment variable).
+The server starts on port 4000 (or whatever `PORT` environment variable is set to).
+
+### Run Tests
+
+From the project root:
+
+```bash
+npm run test --workspace apps/api
+```
+
+Or from the `apps/api` folder:
+
+```bash
+cd apps/api
+npm test
+```
+
+Tests use Jest and Supertest to verify the API works correctly.
+
+### Deployment
+
+**Production URL**: https://trails-avdd.onrender.com/
+
+#### Database Setup
+
+The database location can be set with the `DB_FILE_PATH` environment variable:
+
+- **Local development**: `apps/api/data/trails-api.sqlite`
+- **Production**: Set via `DB_FILE_PATH` or uses project-local path
+- **Testing**: `apps/api/data/trails-api.test.sqlite`
+
+For platforms like Render:
+1. By default, uses a writable directory in the project
+2. For data that survives redeployments, set up a persistent disk (like `/var/data`)
+3. Point to it with `DB_FILE_PATH` environment variable
+
+#### Building for Deployment
+
+- TypeScript and types are in `dependencies` so they're available during deployment builds
+- Build: `npm install && npm run build`
+- Start: `npm start` (runs the compiled JavaScript)
 
 ### Current Endpoints
 
@@ -243,10 +251,12 @@ Health check endpoint that returns the server status.
 
 **Test it:**
 ```bash
+# Local
 curl http://localhost:4000/health
-```
 
-Or open `http://localhost:4000/health` in your browser.
+# Production
+curl https://trails-avdd.onrender.com/health
+```
 
 ---
 
@@ -277,8 +287,13 @@ Retrieve trips from the server with optional incremental sync.
 
 **Test it:**
 ```bash
+# Local
 curl http://localhost:4000/trips
 curl "http://localhost:4000/trips?since=1704000000000"
+
+# Production
+curl https://trails-avdd.onrender.com/trips
+curl "https://trails-avdd.onrender.com/trips?since=1704000000000"
 ```
 
 **`POST /trips/batch`**
@@ -318,33 +333,61 @@ Push local changes to the server and receive server-side changes.
 
 **Test it:**
 ```bash
+# Local
 curl -X POST http://localhost:4000/trips/batch \
+  -H "Content-Type: application/json" \
+  -d '{"clientId":"test-device","lastSyncedAt":null,"changes":[]}'
+
+# Production
+curl -X POST https://trails-avdd.onrender.com/trips/batch \
   -H "Content-Type: application/json" \
   -d '{"clientId":"test-device","lastSyncedAt":null,"changes":[]}'
 ```
 
-**Implementation Status:**
+**`DELETE /trips/cleanup`**
 
-The `/trips` endpoints now use a **SQLite database** that implements real last-writer-wins behavior with server-controlled timestamps:
+Permanently delete all soft-deleted trips from the database. This removes trips marked with `deleted: true`, freeing up database space.
 
-- **Persistent storage**: Trip data is stored in `apps/api/data/trails-api.sqlite` and survives server restarts
-- **Server-controlled timestamps**: The server ignores client-provided `updatedAt` values and always assigns timestamps using `Date.now()`, ensuring the server is the single source of truth
-- **Last-writer-wins**: When a client pushes a trip change, the server replaces any existing trip with the same ID, using arrival order to determine "last"
-- **Incremental sync**: `GET /trips?since=<timestamp>` returns only trips with `updatedAt > since` (server timestamps)
-- **First-time sync**: `POST /trips/batch` with `lastSyncedAt: null` returns all trips in `serverChanges`
-- **Soft deletes**: Trips with `deleted: true` remain in the database and sync to all devices
-- **WAL mode**: Database uses Write-Ahead Logging for better concurrency and durability
+**Response:**
+```json
+{
+  "message": "Soft-deleted trips permanently removed",
+  "deletedCount": 3,
+  "serverTime": 1704412800000
+}
+```
+
+**Test it:**
+```bash
+# Local
+curl -X DELETE http://localhost:4000/trips/cleanup
+
+# Production
+curl -X DELETE https://trails-avdd.onrender.com/trips/cleanup
+```
+
+**How It Works:**
+
+The backend uses SQLite to store trips:
+
+- **Saves data**: Trips are stored in `apps/api/data/trails-api.sqlite` and survive server restarts
+- **Server timestamps**: The server ignores device timestamps and uses its own, avoiding clock issues
+- **Most recent wins**: When syncing, the most recent version (by server time) is kept
+- **Smart downloading**: `GET /trips?since=<timestamp>` only returns trips changed after that time
+- **First sync**: Returns all trips when `lastSyncedAt` is null
+- **Deletion tracking**: Deleted trips stay in the database (marked as deleted) until cleaned up
+- **Database mode**: Uses WAL (Write-Ahead Logging) for better performance
 
 **Current Limitations:**
-- No conflict detection (conflicts array is always empty)
-- No authentication or authorization
-- Single-user / development setup (no multi-tenancy)
+- No conflict detection (most recent always wins)
+- No user accounts or login
+- Single user only (not ready for multiple users)
+- Deleted trips stay in database forever (use `DELETE /trips/cleanup` to remove them)
 
-### Next Steps for Backend
+### Planned Improvements
 
-The sync endpoints now implement real last-writer-wins logic with server-controlled timestamps and persistent SQLite storage. Future enhancements:
-
-- **Enhanced validation** of incoming trip data
-- **Conflict detection** (optional) to populate the `conflicts` array when appropriate
-- **Authentication** to ensure users only access their own trips
-- **Multi-user support** with user isolation
+Future enhancements:
+- Better data validation
+- Detect conflicts and let user choose
+- User accounts and authentication
+- Support multiple users with separate data
