@@ -135,6 +135,11 @@ router.post('/batch', async (req: Request, res: Response) => {
     const lastSynced: number | null =
       typeof lastSyncedAt === 'number' ? lastSyncedAt : null;
 
+    // IMPORTANT: Get server changes BEFORE applying client changes
+    // This prevents client changes from overwriting server-side edits
+    const serverChangeRecords = await getTripsForIncrementalSync(lastSynced);
+    const serverChanges = serverChangeRecords.map(toTripDTO);
+
     // Apply changes to SQLite database
     const applied: { id: string; status: 'created' | 'updated' | 'deleted' }[] = [];
 
@@ -169,10 +174,6 @@ router.post('/batch', async (req: Request, res: Response) => {
 
     // Compute server time
     const serverTime = Date.now();
-
-    // Get server changes (trips modified since client's lastSyncedAt)
-    const serverChangeRecords = await getTripsForIncrementalSync(lastSynced);
-    const serverChanges = serverChangeRecords.map(toTripDTO);
 
     // Return response matching the API contract
     res.json({

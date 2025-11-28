@@ -240,6 +240,123 @@ For platforms like Render:
 
 Health check endpoint that returns the server status.
 
+**`POST /trips`**
+
+Create a new trip on the server.
+
+**Request:**
+```json
+{
+  "id": "trip-tokyo-2025",
+  "title": "Tokyo Adventure",
+  "destination": "Tokyo, Japan",
+  "startDate": "2025-04-01",
+  "endDate": "2025-04-10",
+  "notes": "Visit cherry blossom festival"
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "trip": {
+    "id": "trip-tokyo-2025",
+    "title": "Tokyo Adventure",
+    "destination": "Tokyo, Japan",
+    "startDate": "2025-04-01",
+    "endDate": "2025-04-10",
+    "notes": "Visit cherry blossom festival",
+    "updatedAt": 1704326400000,
+    "deleted": false
+  },
+  "serverTime": 1704326400000
+}
+```
+
+**Test it:**
+```bash
+# Local
+curl -X POST http://localhost:4000/trips \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "trip-1",
+    "title": "Weekend Trip",
+    "destination": "Seattle, WA",
+    "startDate": "2025-06-01",
+    "endDate": "2025-06-03",
+    "notes": "Pike Place Market"
+  }'
+
+# Production
+curl -X POST https://trails-avdd.onrender.com/trips \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "trip-1",
+    "title": "Weekend Trip",
+    "destination": "Seattle, WA",
+    "startDate": "2025-06-01",
+    "endDate": "2025-06-03",
+    "notes": "Pike Place Market"
+  }'
+```
+
+**`PUT /trips/:id`**
+
+Update an existing trip by ID.
+
+**Request:**
+```json
+{
+  "title": "Tokyo Adventure - Extended",
+  "destination": "Tokyo, Japan",
+  "startDate": "2025-04-01",
+  "endDate": "2025-04-12",
+  "notes": "Added Mount Fuji day trip"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "trip": {
+    "id": "trip-tokyo-2025",
+    "title": "Tokyo Adventure - Extended",
+    "destination": "Tokyo, Japan",
+    "startDate": "2025-04-01",
+    "endDate": "2025-04-12",
+    "notes": "Added Mount Fuji day trip",
+    "updatedAt": 1704500000000,
+    "deleted": false
+  },
+  "serverTime": 1704500000000
+}
+```
+
+**Test it:**
+```bash
+# Local
+curl -X PUT http://localhost:4000/trips/trip-1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Weekend Trip - UPDATED",
+    "destination": "Seattle, WA",
+    "startDate": "2025-06-01",
+    "endDate": "2025-06-04",
+    "notes": "Pike Place Market + Space Needle"
+  }'
+
+# Production
+curl -X PUT https://trails-avdd.onrender.com/trips/trip-1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Weekend Trip - UPDATED",
+    "destination": "Seattle, WA",
+    "startDate": "2025-06-01",
+    "endDate": "2025-06-04",
+    "notes": "Pike Place Market + Space Needle"
+  }'
+```
+
 **Response:**
 ```json
 {

@@ -49,6 +49,146 @@ What the app must do:
 
 ## API Endpoints
 
+### POST /trips
+
+Create a new trip on the server.
+
+**Request Body:**
+
+```typescript
+{
+  "id": string,            // Unique trip identifier (client-generated)
+  "title": string,         // Trip title (required)
+  "destination": string,   // Destination (required)
+  "startDate": string,     // ISO date string (required)
+  "endDate": string,       // ISO date string (required)
+  "notes"?: string         // Optional notes
+}
+```
+
+**Response:**
+
+```typescript
+{
+  "trip": TripDTO,         // The created trip with server-assigned timestamp
+  "serverTime": number     // Current server timestamp (ms)
+}
+```
+
+**Example Request:**
+
+```http
+POST /trips
+Content-Type: application/json
+
+{
+  "id": "trip-tokyo-2025",
+  "title": "Tokyo Adventure",
+  "destination": "Tokyo, Japan",
+  "startDate": "2025-04-01",
+  "endDate": "2025-04-10",
+  "notes": "Visit cherry blossom festival"
+}
+```
+
+**Example Response:**
+
+```json
+{
+  "trip": {
+    "id": "trip-tokyo-2025",
+    "title": "Tokyo Adventure",
+    "destination": "Tokyo, Japan",
+    "startDate": "2025-04-01",
+    "endDate": "2025-04-10",
+    "notes": "Visit cherry blossom festival",
+    "updatedAt": 1704326400000,
+    "deleted": false
+  },
+  "serverTime": 1704326400000
+}
+```
+
+**Status Codes:**
+
+- `201 Created` - Trip successfully created
+- `400 Bad Request` - Missing required fields
+- `500 Internal Server Error` - Server error
+
+---
+
+### PUT /trips/:id
+
+Update an existing trip.
+
+**URL Parameters:**
+
+| Parameter | Type   | Required | Description                    |
+|-----------|--------|----------|--------------------------------|
+| `id`      | string | Yes      | The unique ID of the trip to update |
+
+**Request Body:**
+
+```typescript
+{
+  "title": string,         // Trip title (required)
+  "destination": string,   // Destination (required)
+  "startDate": string,     // ISO date string (required)
+  "endDate": string,       // ISO date string (required)
+  "notes"?: string         // Optional notes
+}
+```
+
+**Response:**
+
+```typescript
+{
+  "trip": TripDTO,         // The updated trip with new server-assigned timestamp
+  "serverTime": number     // Current server timestamp (ms)
+}
+```
+
+**Example Request:**
+
+```http
+PUT /trips/trip-tokyo-2025
+Content-Type: application/json
+
+{
+  "title": "Tokyo Adventure - Extended",
+  "destination": "Tokyo, Japan",
+  "startDate": "2025-04-01",
+  "endDate": "2025-04-12",
+  "notes": "Visit cherry blossom festival, Mount Fuji day trip"
+}
+```
+
+**Example Response:**
+
+```json
+{
+  "trip": {
+    "id": "trip-tokyo-2025",
+    "title": "Tokyo Adventure - Extended",
+    "destination": "Tokyo, Japan",
+    "startDate": "2025-04-01",
+    "endDate": "2025-04-12",
+    "notes": "Visit cherry blossom festival, Mount Fuji day trip",
+    "updatedAt": 1704500000000,
+    "deleted": false
+  },
+  "serverTime": 1704500000000
+}
+```
+
+**Status Codes:**
+
+- `200 OK` - Trip successfully updated
+- `400 Bad Request` - Missing required fields
+- `500 Internal Server Error` - Server error
+
+---
+
 ### GET /trips
 
 Get trips from the server. You can filter to only get trips changed since a certain time.
