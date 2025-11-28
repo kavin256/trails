@@ -1,0 +1,457 @@
+{
+  "info": {
+    "name": "Trails API",
+    "description": "API for syncing travel trips across devices. Supports offline-first architecture with SQLite backend.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://trails-avdd.onrender.com",
+      "type": "string"
+    },
+    {
+      "key": "localUrl",
+      "value": "http://localhost:4000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        },
+        "description": "Health check endpoint that returns server status, uptime, and current server time."
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"ok\",\n  \"uptimeSeconds\": 123.456,\n  \"serverTime\": 1704326400000\n}"
+        }
+      ]
+    },
+    {
+      "name": "Get All Trips",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/trips",
+          "host": ["{{baseUrl}}"],
+          "path": ["trips"]
+        },
+        "description": "Retrieve all trips from the server."
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/trips",
+              "host": ["{{baseUrl}}"],
+              "path": ["trips"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"trips\": [\n    {\n      \"id\": \"1\",\n      \"title\": \"Summer Vacation\",\n      \"destination\": \"Bali, Indonesia\",\n      \"startDate\": \"2025-07-15\",\n      \"endDate\": \"2025-07-25\",\n      \"notes\": \"Beach resort and temple tours\",\n      \"updatedAt\": 1704326400000,\n      \"deleted\": false\n    }\n  ],\n  \"serverTime\": 1704412800000\n}"
+        }
+      ]
+    },
+    {
+      "name": "Add a New Trip",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"trip-tokyo-2025\",\n  \"title\": \"Tokyo Adventure\",\n  \"destination\": \"Tokyo, Japan\",\n  \"startDate\": \"2025-04-01\",\n  \"endDate\": \"2025-04-10\",\n  \"notes\": \"Visit cherry blossom festival, explore Shibuya, try authentic ramen\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/trips",
+          "host": ["{{baseUrl}}"],
+          "path": ["trips"]
+        },
+        "description": "Create a new trip with all details. The server will assign a timestamp."
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"trip-tokyo-2025\",\n  \"title\": \"Tokyo Adventure\",\n  \"destination\": \"Tokyo, Japan\",\n  \"startDate\": \"2025-04-01\",\n  \"endDate\": \"2025-04-10\",\n  \"notes\": \"Visit cherry blossom festival, explore Shibuya, try authentic ramen\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/trips",
+              "host": ["{{baseUrl}}"],
+              "path": ["trips"]
+            }
+          },
+          "status": "Created",
+          "code": 201,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"trip\": {\n    \"id\": \"trip-tokyo-2025\",\n    \"title\": \"Tokyo Adventure\",\n    \"destination\": \"Tokyo, Japan\",\n    \"startDate\": \"2025-04-01\",\n    \"endDate\": \"2025-04-10\",\n    \"notes\": \"Visit cherry blossom festival, explore Shibuya, try authentic ramen\",\n    \"updatedAt\": 1704326400000,\n    \"deleted\": false\n  },\n  \"serverTime\": 1704326400000\n}"
+        }
+      ]
+    },
+    {
+      "name": "Edit a Trip",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Tokyo Adventure - Extended\",\n  \"destination\": \"Tokyo, Japan\",\n  \"startDate\": \"2025-04-01\",\n  \"endDate\": \"2025-04-12\",\n  \"notes\": \"Visit cherry blossom festival, explore Shibuya, try authentic ramen, visit teamLab Borderless, day trip to Mount Fuji\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/trips/trip-tokyo-2025",
+          "host": ["{{baseUrl}}"],
+          "path": ["trips", "trip-tokyo-2025"]
+        },
+        "description": "Update an existing trip by ID. Only the fields you provide will be updated."
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Tokyo Adventure - Extended\",\n  \"destination\": \"Tokyo, Japan\",\n  \"startDate\": \"2025-04-01\",\n  \"endDate\": \"2025-04-12\",\n  \"notes\": \"Visit cherry blossom festival, explore Shibuya, try authentic ramen, visit teamLab Borderless, day trip to Mount Fuji\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/trips/trip-tokyo-2025",
+              "host": ["{{baseUrl}}"],
+              "path": ["trips", "trip-tokyo-2025"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"trip\": {\n    \"id\": \"trip-tokyo-2025\",\n    \"title\": \"Tokyo Adventure - Extended\",\n    \"destination\": \"Tokyo, Japan\",\n    \"startDate\": \"2025-04-01\",\n    \"endDate\": \"2025-04-12\",\n    \"notes\": \"Visit cherry blossom festival, explore Shibuya, try authentic ramen, visit teamLab Borderless, day trip to Mount Fuji\",\n    \"updatedAt\": 1704500000000,\n    \"deleted\": false\n  },\n  \"serverTime\": 1704500000000\n}"
+        }
+      ]
+    },
+    {
+      "name": "Get Trips Since Timestamp (Incremental Sync)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/trips?since=1704000000000",
+          "host": ["{{baseUrl}}"],
+          "path": ["trips"],
+          "query": [
+            {
+              "key": "since",
+              "value": "1704000000000",
+              "description": "Unix timestamp in milliseconds. Only returns trips updated after this time."
+            }
+          ]
+        },
+        "description": "Retrieve only trips that have been modified since the specified timestamp. Used for incremental sync to reduce bandwidth."
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/trips?since=1704000000000",
+              "host": ["{{baseUrl}}"],
+              "path": ["trips"],
+              "query": [
+                {
+                  "key": "since",
+                  "value": "1704000000000"
+                }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"trips\": [\n    {\n      \"id\": \"2\",\n      \"title\": \"Weekend Getaway\",\n      \"destination\": \"Portland, Oregon\",\n      \"startDate\": \"2025-09-05\",\n      \"endDate\": \"2025-09-07\",\n      \"notes\": \"\",\n      \"updatedAt\": 1704326400000,\n      \"deleted\": false\n    }\n  ],\n  \"serverTime\": 1704412800000\n}"
+        }
+      ]
+    },
+    {
+      "name": "Batch Sync - First Sync",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientId\": \"device-abc-123\",\n  \"lastSyncedAt\": null,\n  \"changes\": [\n    {\n      \"id\": \"local-trip-1\",\n      \"title\": \"Spring Break\",\n      \"destination\": \"Miami Beach, FL\",\n      \"startDate\": \"2025-03-20\",\n      \"endDate\": \"2025-03-27\",\n      \"notes\": \"Spring break with friends\",\n      \"updatedAt\": 1704326400000,\n      \"deleted\": false\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/trips/batch",
+          "host": ["{{baseUrl}}"],
+          "path": ["trips", "batch"]
+        },
+        "description": "First sync - send local trips to server. Set lastSyncedAt to null to get all server trips back."
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"device-abc-123\",\n  \"lastSyncedAt\": null,\n  \"changes\": [\n    {\n      \"id\": \"local-trip-1\",\n      \"title\": \"Spring Break\",\n      \"destination\": \"Miami Beach, FL\",\n      \"startDate\": \"2025-03-20\",\n      \"endDate\": \"2025-03-27\",\n      \"notes\": \"Spring break with friends\",\n      \"updatedAt\": 1704326400000,\n      \"deleted\": false\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/trips/batch",
+              "host": ["{{baseUrl}}"],
+              "path": ["trips", "batch"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"applied\": [\n    {\n      \"id\": \"local-trip-1\",\n      \"status\": \"created\"\n    }\n  ],\n  \"conflicts\": [],\n  \"serverChanges\": [\n    {\n      \"id\": \"server-trip-1\",\n      \"title\": \"Summer Vacation\",\n      \"destination\": \"Bali, Indonesia\",\n      \"startDate\": \"2025-07-15\",\n      \"endDate\": \"2025-07-25\",\n      \"notes\": \"Beach resort\",\n      \"updatedAt\": 1704300000000,\n      \"deleted\": false\n    }\n  ],\n  \"serverTime\": 1704412800000\n}"
+        }
+      ]
+    },
+    {
+      "name": "Batch Sync - Incremental Update",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientId\": \"device-abc-123\",\n  \"lastSyncedAt\": 1704412800000,\n  \"changes\": [\n    {\n      \"id\": \"local-trip-1\",\n      \"title\": \"Spring Break - UPDATED\",\n      \"destination\": \"Miami Beach, FL\",\n      \"startDate\": \"2025-03-20\",\n      \"endDate\": \"2025-03-27\",\n      \"notes\": \"Updated notes\",\n      \"updatedAt\": 1704500000000,\n      \"deleted\": false\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/trips/batch",
+          "host": ["{{baseUrl}}"],
+          "path": ["trips", "batch"]
+        },
+        "description": "Incremental sync - send changes and only receive trips updated since lastSyncedAt."
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"device-abc-123\",\n  \"lastSyncedAt\": 1704412800000,\n  \"changes\": [\n    {\n      \"id\": \"local-trip-1\",\n      \"title\": \"Spring Break - UPDATED\",\n      \"destination\": \"Miami Beach, FL\",\n      \"startDate\": \"2025-03-20\",\n      \"endDate\": \"2025-03-27\",\n      \"notes\": \"Updated notes\",\n      \"updatedAt\": 1704500000000,\n      \"deleted\": false\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/trips/batch",
+              "host": ["{{baseUrl}}"],
+              "path": ["trips", "batch"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"applied\": [\n    {\n      \"id\": \"local-trip-1\",\n      \"status\": \"updated\"\n    }\n  ],\n  \"conflicts\": [],\n  \"serverChanges\": [],\n  \"serverTime\": 1704600000000\n}"
+        }
+      ]
+    },
+    {
+      "name": "Batch Sync - Delete Trip",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientId\": \"device-abc-123\",\n  \"lastSyncedAt\": 1704600000000,\n  \"changes\": [\n    {\n      \"id\": \"local-trip-1\",\n      \"title\": \"Spring Break\",\n      \"destination\": \"Miami Beach, FL\",\n      \"startDate\": \"2025-03-20\",\n      \"endDate\": \"2025-03-27\",\n      \"notes\": \"\",\n      \"updatedAt\": 1704700000000,\n      \"deleted\": true\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/trips/batch",
+          "host": ["{{baseUrl}}"],
+          "path": ["trips", "batch"]
+        },
+        "description": "Soft-delete a trip by setting deleted to true. The trip remains in the database for syncing across devices."
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"device-abc-123\",\n  \"lastSyncedAt\": 1704600000000,\n  \"changes\": [\n    {\n      \"id\": \"local-trip-1\",\n      \"title\": \"Spring Break\",\n      \"destination\": \"Miami Beach, FL\",\n      \"startDate\": \"2025-03-20\",\n      \"endDate\": \"2025-03-27\",\n      \"notes\": \"\",\n      \"updatedAt\": 1704700000000,\n      \"deleted\": true\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/trips/batch",
+              "host": ["{{baseUrl}}"],
+              "path": ["trips", "batch"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"applied\": [\n    {\n      \"id\": \"local-trip-1\",\n      \"status\": \"deleted\"\n    }\n  ],\n  \"conflicts\": [],\n  \"serverChanges\": [],\n  \"serverTime\": 1704800000000\n}"
+        }
+      ]
+    },
+    {
+      "name": "Cleanup Deleted Trips",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/trips/cleanup",
+          "host": ["{{baseUrl}}"],
+          "path": ["trips", "cleanup"]
+        },
+        "description": "Permanently delete all soft-deleted trips from the database. This cannot be undone!"
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/trips/cleanup",
+              "host": ["{{baseUrl}}"],
+              "path": ["trips", "cleanup"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"message\": \"Soft-deleted trips permanently removed\",\n  \"deletedCount\": 3,\n  \"serverTime\": 1704412800000\n}"
+        }
+      ]
+    }
+  ]
+}
