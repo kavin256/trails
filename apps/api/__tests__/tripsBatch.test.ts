@@ -13,10 +13,203 @@ interface TripDTO {
   deleted: boolean;
 }
 
-describe('/trips and /trips/batch sync behavior', () => {
+describe('/trips CRUD and sync behavior', () => {
   beforeEach(async () => {
     // Clear all data before each test for isolation
     await clearAllTrips();
+  });
+
+  describe('POST /trips - Create a new trip', () => {
+    test('creates a new trip successfully', async () => {
+      const trip = {
+        id: 'trip-create-1',
+        title: 'New Trip',
+        destination: 'Paris, France',
+        startDate: '2025-08-01',
+        endDate: '2025-08-10',
+        notes: 'Summer vacation',
+      };
+
+      const res = await request(app)
+        .post('/trips')
+        .send(trip)
+        .expect(201);
+
+      const body = res.body;
+      expect(body.trip).toBeDefined();
+      expect(body.trip.id).toBe(trip.id);
+      expect(body.trip.title).toBe(trip.title);
+      expect(body.trip.destination).toBe(trip.destination);
+      expect(body.trip.deleted).toBe(false);
+      expect(typeof body.trip.updatedAt).toBe('number');
+      expect(typeof body.serverTime).toBe('number');
+    });
+
+    test('rejects request with missing required fields', async () => {
+      const invalidTrip = {
+        id: 'trip-invalid',
+        title: 'Missing Fields',
+        // Missing destination, startDate, endDate
+      };
+
+      await request(app)
+        .post('/trips')
+        .send(invalidTrip)
+        .expect(400);
+    });
+  });
+
+  describe('PUT /trips/:id - Update a trip', () => {
+    test('updates an existing trip successfully', async () => {
+      // First create a trip
+      const originalTrip = {
+        id: 'trip-update-1',
+        title: 'Original Title',
+        destination: 'London, UK',
+        startDate: '2025-09-01',
+        endDate: '2025-09-05',
+        notes: 'Original notes',
+      };
+
+      await request(app)
+        .post('/trips')
+        .send(originalTrip)
+        .expect(201);
+
+      // Now update it
+      const updates = {
+        title: 'Updated Title',
+        destination: 'London, UK',
+        startDate: '2025-09-01',
+        endDate: '2025-09-07', // Extended by 2 days
+        notes: 'Updated notes',
+      };
+
+      const res = await request(app)
+        .put(`/trips/${originalTrip.id}`)
+        .send(updates)
+        .expect(200);
+
+      const body = res.body;
+      expect(body.trip).toBeDefined();
+      expect(body.trip.id).toBe(originalTrip.id);
+      expect(body.trip.title).toBe(updates.title);
+      expect(body.trip.endDate).toBe(updates.endDate);
+      expect(body.trip.notes).toBe(updates.notes);
+      expect(typeof body.trip.updatedAt).toBe('number');
+      expect(typeof body.serverTime).toBe('number');
+    });
+
+    test('rejects update with missing required fields', async () => {
+      const invalidUpdate = {
+        title: 'Title Only',
+        // Missing destination, startDate, endDate
+      };
+
+      await request(app)
+        .put('/trips/some-id')
+        .send(invalidUpdate)
+        .expect(400);
+    });
+  });
+
+  describe('Sync behavior after CRUD operations', () => {
+    test('trip created via POST /trips appears in batch sync', async () => {
+      // Create trip via POST
+      const trip = {
+        id: 'trip-sync-test',
+        title: 'Sync Test Trip',
+        destination: 'Tokyo, Japan',
+        startDate: '2025-10-01',
+        endDate: '2025-10-05',
+        notes: 'Testing sync',
+      };
+
+      const createRes = await request(app)
+        .post('/trips')
+        .send(trip)
+        .expect(201);
+
+      const createBody = createRes.body;
+      const serverTimeAfterCreate = createBody.serverTime;
+
+      // Now sync from a different client
+      const syncRes = await request(app)
+        .post('/trips/batch')
+        .send({
+          clientId: 'test-client-sync',
+          lastSyncedAt: null,
+          changes: [],
+        })
+        .expect(200);
+
+      const syncBody = syncRes.body;
+      const foundTrip = syncBody.serverChanges.find((t: TripDTO) => t.id === trip.id);
+
+      expect(foundTrip).toBeDefined();
+      expect(foundTrip.title).toBe(trip.title);
+      expect(foundTrip.destination).toBe(trip.destination);
+    });
+
+    test('trip updated via PUT /trips appears in incremental sync', async () => {
+      // Create trip
+      const trip = {
+        id: 'trip-update-sync',
+        title: 'Original',
+        destination: 'NYC, USA',
+        startDate: '2025-11-01',
+        endDate: '2025-11-05',
+        notes: 'Original',
+      };
+
+      await request(app)
+        .post('/trips')
+        .send(trip)
+        .expect(201);
+
+      // Do a sync to get the serverTime
+      const firstSyncRes = await request(app)
+        .post('/trips/batch')
+        .send({
+          clientId: 'client-1',
+          lastSyncedAt: null,
+          changes: [],
+        })
+        .expect(200);
+
+      const firstSyncTime = firstSyncRes.body.serverTime;
+
+      // Update the trip via PUT
+      const updates = {
+        title: 'Updated Title',
+        destination: 'NYC, USA',
+        startDate: '2025-11-01',
+        endDate: '2025-11-08',
+        notes: 'Extended trip',
+      };
+
+      await request(app)
+        .put(`/trips/${trip.id}`)
+        .send(updates)
+        .expect(200);
+
+      // Sync again with lastSyncedAt set
+      const secondSyncRes = await request(app)
+        .post('/trips/batch')
+        .send({
+          clientId: 'client-1',
+          lastSyncedAt: firstSyncTime,
+          changes: [],
+        })
+        .expect(200);
+
+      const secondSyncBody = secondSyncRes.body;
+      const updatedTrip = secondSyncBody.serverChanges.find((t: TripDTO) => t.id === trip.id);
+
+      expect(updatedTrip).toBeDefined();
+      expect(updatedTrip.title).toBe(updates.title);
+      expect(updatedTrip.endDate).toBe(updates.endDate);
+    });
   });
 
   test('first sync with a new trip stores it and returns it as serverChanges', async () => {
