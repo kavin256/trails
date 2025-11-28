@@ -157,8 +157,18 @@ export const TripsListScreen: React.FC = () => {
     <Screen>
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>My Trips</Text>
+          <Text style={styles.headerTitle}>Trips</Text>
           <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.syncButton}
+              onPress={handleRefresh}
+              activeOpacity={0.7}
+              disabled={isRefreshing}
+            >
+              <Text style={styles.syncButtonText}>
+                {isRefreshing ? '⟳' : '↻'} Sync
+              </Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.clearSyncButton}
               onPress={handleClearSync}
@@ -231,6 +241,17 @@ const styles = StyleSheet.create({
   lastSyncedText: {
     fontSize: 12,
     color: '#666',
+  },
+  syncButton: {
+    backgroundColor: '#34C759',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  syncButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
   },
   clearSyncButton: {
     backgroundColor: '#FF9500',
