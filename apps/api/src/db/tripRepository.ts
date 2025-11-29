@@ -124,11 +124,19 @@ export async function getAllTrips(): Promise<TripRecord[]> {
 }
 
 /**
- * Upsert a trip from client using server-controlled timestamp
- * Implements last-writer-wins by always replacing existing trips
+ * Upsert a trip from client with timestamp-based conflict resolution
  *
- * @param input - Trip data from client (client's updatedAt is ignored)
- * @returns The final TripRecord after writing to database
+ * Timestamp Comparison Logic:
+ * - If server has NEWER data (serverUpdatedAt > clientUpdatedAt): REJECT client's stale data
+ * - If server has OLDER/SAME data: ACCEPT client's update and assign new timestamp
+ *
+ * This prevents data loss when:
+ * - Postman/API edits trip while client is offline
+ * - Another device edits trip before this device syncs
+ * - Any concurrent edit from other sources
+ *
+ * @param input - Trip data from client (includes clientUpdatedAt for timestamp comparison)
+ * @returns The final TripRecord after writing to database (may be server's version if client data was stale)
  */
 export async function upsertTripFromClient(input: {
   id: string;

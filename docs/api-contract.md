@@ -36,15 +36,28 @@ interface TripDTO {
 
 ### How Timestamps Work
 
-**The server controls all timestamps.** When the mobile app sends a trip update, the server ignores the app's timestamp and assigns its own. This prevents problems caused by incorrect device clocks.
+**The server controls all timestamps.** When the mobile app sends a trip update, the server uses timestamps to prevent stale data from overwriting newer changes.
 
-Why this matters:
-- **Wrong device time**: If your phone's date/time is wrong, it won't break syncing
-- **Timezone issues**: All timestamps come from the server, avoiding timezone confusion
-- **Consistent ordering**: The server guarantees timestamps always increase
+**Timestamp Comparison Logic:**
 
-What the app must do:
-- After syncing, update local trips with the timestamps the server returns
+1. **Client sends update**: Includes the trip data and its local `updatedAt` timestamp
+2. **Server checks**: Compares client's timestamp with server's existing timestamp
+3. **Server decides**:
+   - If server has **newer data** (server's timestamp > client's timestamp): **Reject client's stale data**, keep server's version
+   - If server has **older or same data**: **Accept client's update**, assign new server timestamp
+4. **Server responds**: Returns trips where client needs updates (stale data was rejected)
+
+**Why this matters:**
+
+- **Prevents data loss**: If you edit a trip via Postman while your phone is offline, the newer Postman edit won't be overwritten by your phone's stale data
+- **Wrong device time**: Device clock doesn't matter - server uses its own timestamps
+- **Timezone issues**: All timestamps come from the server
+- **Last-write-wins**: The most recent edit (based on server time) always wins
+
+**What the app must do:**
+
+- Send the `updatedAt` timestamp with each trip change
+- Apply all trips from `serverChanges` - these represent newer versions the client doesn't have
 - Use `serverTime` (not the device clock) to track when the last sync happened
 
 ## API Endpoints
@@ -377,17 +390,34 @@ For `/trips/batch`, the server logs both client and server payload summaries to 
 
 **Sync Order of Operations:**
 
-The server processes batch sync requests in a specific order to prevent race conditions:
+The server processes batch sync requests in a specific order to prevent data loss:
 
-1. **Capture server state** (for incremental sync only): Before applying any client changes, the server captures what has changed since `lastSyncedAt`. This prevents concurrent edits (e.g., from Postman or another client) from being overwritten by the incoming client changes.
+1. **Capture server state** (for incremental sync only): Before applying any client changes, the server captures what has changed since `lastSyncedAt`. This preserves concurrent edits (e.g., from Postman or another client) that happened while the client was offline.
 
-2. **Apply client changes**: The server processes all changes from the client and assigns new server timestamps.
+2. **Apply client changes with timestamp comparison**: For each client change:
+   - Compare client's `updatedAt` with server's existing `updatedAt`
+   - If **server has newer data**: Reject client's stale update, keep server's version
+   - If **server has older/same data**: Accept client's update, assign new server timestamp
+   - Track which trips were rejected due to stale data
 
 3. **Return appropriate changes**:
    - **First sync** (`lastSyncedAt = null`): Returns ALL trips including ones just created/updated
-   - **Incremental sync** (`lastSyncedAt = number`): Returns only the changes captured in step 1
+   - **Incremental sync** (`lastSyncedAt = number`): Returns:
+     - Server changes from step 1 (edits from other clients/sources)
+     - Trips where client's data was rejected (client needs newer version)
 
-This ensures that if you edit a trip via the API (e.g., Postman) while a client is offline, the next sync will properly deliver that edit to the client, even if the client also has local changes to the same trip.
+**Example Scenario:**
+
+1. Client syncs at T1, has trip with "Location A"
+2. Postman edits trip to "Location B" at T2 (T2 > T1)
+3. Client edits same trip to "Location C" offline (still has timestamp T1)
+4. Client syncs:
+   - Server captured "Location B" in step 1
+   - Server rejects "Location C" in step 2 (T1 < T2, stale data)
+   - Server returns "Location B" to client in step 3
+   - Client updates to "Location B" ✅ No data loss!
+
+This ensures that newer edits (from any source) are never overwritten by stale client data.
 
 ---
 
@@ -429,23 +459,45 @@ DELETE /trips/cleanup
 
 ## How Conflicts Are Handled
 
-### Most Recent Change Wins
+### Server-Timestamp-Based Conflict Resolution
 
-When two devices edit the same trip while offline, the last one to sync wins:
+When multiple clients or sources (mobile app, Postman, etc.) edit the same trip, the server uses timestamps to prevent data loss:
 
-1. The server receives a trip update and checks if it already has that trip
-2. The server accepts the change and assigns a new timestamp using server time
-3. This becomes the "official" version that all devices will receive
+**Scenario 1: Client has newer data**
+1. Server has trip with timestamp T1
+2. Client sends trip with timestamp T2 (T2 > T1)
+3. Server accepts client's version and assigns new timestamp T3
+4. Server does NOT return this trip in `serverChanges` (client already has it)
+
+**Scenario 2: Server has newer data (prevents data loss!)**
+1. Server has trip edited via Postman with timestamp T2
+2. Client sends trip with timestamp T1 (T1 < T2, stale data)
+3. Server **rejects** client's stale data, keeps server's version
+4. Server **returns** the trip in `serverChanges` so client can update
+
+**Scenario 3: Concurrent edits**
+1. Device A and Device B both have trip at timestamp T1
+2. Device A edits offline → syncs first → server accepts (timestamp T2)
+3. Device B edits offline → syncs second → server rejects (T1 < T2, stale)
+4. Device B receives Device A's version in `serverChanges`
+5. Device B's local edit is overwritten by Device A's version
 
 **Why this works:**
 
-- All timestamps come from the server, not from individual devices
-- Devices with wrong dates/times won't cause problems
-- The order is based on when changes reach the server, not when they were made on the device
+- **Prevents data loss**: Newer edits never get overwritten by stale data
+- **Server is authoritative**: All timestamps come from the server
+- **Devices with wrong clocks**: Don't cause problems because server controls timestamps
+- **Last-write-wins**: Based on when changes reach the server, not when made on device
+
+**Trade-offs:**
+
+- If two devices edit the same trip offline, the first to sync wins
+- The second device's changes are discarded (overwritten by first device's changes)
+- Future versions may detect conflicts and let you choose which version to keep
 
 **Current status:**
 
-The app uses simple "last change wins" logic. The `conflicts` array is always empty. Future versions may detect conflicts and let you choose which version to keep.
+The `conflicts` array is always empty. The server silently resolves conflicts using timestamp comparison. Future versions may expose conflicts for manual resolution.
 
 ## How Deletion Works
 
@@ -499,9 +551,11 @@ Use the `DELETE /trips/cleanup` endpoint to permanently remove deleted trips fro
 
 **3. Server Processes Changes**
 
-- The server compares your trips with what it has
-- For each trip, the most recent version wins (based on server time)
-- The server assigns new timestamps for accepted changes
+- The server compares each trip's timestamp with the server's existing version
+- For each trip:
+  - If server has **newer data** (server timestamp > client timestamp): Reject client's stale update
+  - If server has **older/same data**: Accept client's update and assign new timestamp
+- Tracks which trips were rejected to return them in `serverChanges`
 
 **4. Get Changes from Server**
 
