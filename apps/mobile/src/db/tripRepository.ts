@@ -186,6 +186,23 @@ export const deleteTrip = async (id: string): Promise<void> => {
 };
 
 /**
+ * Permanently delete all soft-deleted trips from local database
+ * This should be called after server cleanup to keep local and server in sync
+ */
+export const permanentlyDeleteSoftDeletedTrips = async (): Promise<number> => {
+  try {
+    const database = getDatabase();
+    const result = await database.runAsync('DELETE FROM trips WHERE deleted = 1');
+    const deletedCount = result.changes || 0;
+    console.log(`Permanently deleted ${deletedCount} soft-deleted trips from local DB`);
+    return deletedCount;
+  } catch (error) {
+    console.error('Error permanently deleting trips:', error);
+    throw error;
+  }
+};
+
+/**
  * Map a database row to a Trip object
  */
 const mapRowToTrip = (row: any): Trip => {

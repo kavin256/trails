@@ -14,27 +14,46 @@ if (process.env.NODE_ENV !== 'test') {
     const startTime = Date.now();
 
     // Log request details
-    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log(`📥 ${req.method} ${req.path}`);
-    console.log(`   Time: ${new Date().toISOString()}`);
+    console.log(`\n📥 ${req.method} ${req.path}`);
 
-    // Log query parameters
-    if (Object.keys(req.query).length > 0) {
+    // Special handling for /trips/batch sync endpoint
+    if (req.path === '/trips/batch' && req.method === 'POST') {
+      const { lastSyncedAt, changes } = req.body || {};
+      const syncType = lastSyncedAt === null ? 'FULL SYNC' : 'INCREMENTAL';
+      console.log(`   Type: ${syncType}`);
+      if (lastSyncedAt !== null) {
+        console.log(`   Last synced: ${new Date(lastSyncedAt).toLocaleTimeString()}`);
+      }
+      console.log(`   Client sending: ${changes?.length || 0} trips`);
+    } else if (Object.keys(req.query).length > 0) {
       console.log(`   Query:`, req.query);
-    }
-
-    // Log request body (for POST/PUT/PATCH)
-    if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
-      console.log(`   Body:`, JSON.stringify(req.body, null, 2));
+    } else if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
+      console.log(`   Body:`, req.body);
     }
 
     // Capture response
     const originalJson = res.json.bind(res);
     res.json = function (body: any) {
       const duration = Date.now() - startTime;
-      console.log(`📤 Response (${res.statusCode}) - ${duration}ms`);
-      console.log(`   Body:`, JSON.stringify(body, null, 2));
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+      // Special handling for /trips/batch response
+      if (req.path === '/trips/batch' && req.method === 'POST') {
+        const { applied, serverChanges } = body || {};
+        console.log(`📤 Response (${res.statusCode}) - ${duration}ms`);
+        console.log(`   Applied: ${applied?.length || 0} trips`);
+        console.log(`   Server changes: ${serverChanges?.length || 0} trips`);
+
+        if (serverChanges?.length > 0) {
+          const changeIds = serverChanges.map((t: any) =>
+            `${t.id}${t.deleted ? ' (deleted)' : ''}`
+          ).join(', ');
+          console.log(`   Changed IDs: ${changeIds}`);
+        }
+      } else {
+        console.log(`📤 Response (${res.statusCode}) - ${duration}ms`);
+        console.log(`   Body:`, body);
+      }
+
       return originalJson(body);
     };
 

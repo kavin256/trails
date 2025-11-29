@@ -17,12 +17,15 @@ import { Screen } from '../components/Screen';
 import { useTrips } from '../context/TripsContext';
 import { syncTripsOnce } from '../sync/tripsSync';
 import { clearLastSyncedAt, getLastSyncedAt } from '../sync/syncState';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { API_BASE_URL } from '../config/api';
 
 export const TripsListScreen: React.FC = () => {
   const navigation = useNavigation<RootStackNavigationProp>();
-  const { trips, deleteTrip, refreshFromDb } = useTrips();
+  const { trips, deleteTrip, refreshFromDb, cleanupDeletedTrips } = useTrips();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastSyncedAt, setLastSyncedAtState] = useState<number | null>(null);
+  const { isOnline } = useNetworkStatus();
 
   useEffect(() => {
     const loadLastSynced = async () => {
@@ -119,6 +122,49 @@ export const TripsListScreen: React.FC = () => {
     );
   };
 
+  const handleCleanup = async () => {
+    Alert.alert(
+      'Cleanup Deleted Trips',
+      'This will permanently remove all deleted trips from both your device and the server. This cannot be undone!',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Cleanup',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // First cleanup server
+              const serverRes = await fetch(`${API_BASE_URL}/trips/cleanup`, {
+                method: 'DELETE',
+              });
+
+              if (!serverRes.ok) {
+                throw new Error('Server cleanup failed');
+              }
+
+              // Then cleanup local database
+              const localCount = await cleanupDeletedTrips();
+
+              Alert.alert(
+                'Success',
+                `Permanently deleted ${localCount} trip(s) from your device and server.`
+              );
+            } catch (error) {
+              console.error('Cleanup error:', error);
+              Alert.alert(
+                'Error',
+                'Failed to cleanup trips. Please try again.'
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderRightActions = (trip: Trip) => (
     <View style={styles.deleteActionContainer}>
       <TouchableOpacity
@@ -187,13 +233,29 @@ export const TripsListScreen: React.FC = () => {
         </View>
 
         <View style={styles.syncStatusRow}>
-          {lastSyncedAt === null ? (
-            <Text style={styles.lastSyncedText}>Not synced yet</Text>
-          ) : (
-            <Text style={styles.lastSyncedText}>
-              Last synced: {new Date(lastSyncedAt).toLocaleString()}
+          <View style={styles.statusContainer}>
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: isOnline ? '#34C759' : '#FF3B30' },
+              ]}
+            />
+            <Text style={styles.statusText}>
+              {isOnline ? 'Online' : 'Offline'}
             </Text>
-          )}
+          </View>
+          <View style={styles.syncInfoContainer}>
+            {lastSyncedAt === null ? (
+              <Text style={styles.lastSyncedText}>Not synced yet</Text>
+            ) : (
+              <Text style={styles.lastSyncedText}>
+                Last synced: {new Date(lastSyncedAt).toLocaleString()}
+              </Text>
+            )}
+            <TouchableOpacity onPress={handleCleanup} activeOpacity={0.7}>
+              <Text style={styles.cleanupLink}>Cleanup deleted trips</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <FlatList
@@ -237,10 +299,37 @@ const styles = StyleSheet.create({
   },
   syncStatusRow: {
     marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#333',
+  },
+  syncInfoContainer: {
+    alignItems: 'flex-end',
+    gap: 4,
   },
   lastSyncedText: {
     fontSize: 12,
     color: '#666',
+  },
+  cleanupLink: {
+    fontSize: 11,
+    color: '#FF3B30',
+    textDecorationLine: 'underline',
   },
   syncButton: {
     backgroundColor: '#34C759',

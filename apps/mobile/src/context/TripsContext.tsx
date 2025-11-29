@@ -10,6 +10,7 @@ interface TripsContextValue {
   updateTrip: (id: string, data: Partial<Omit<Trip, 'id' | 'updatedAt' | 'deleted'>>) => void;
   deleteTrip: (id: string) => Promise<void>;
   refreshFromDb: () => Promise<void>;
+  cleanupDeletedTrips: () => Promise<number>;
 }
 
 const TripsContext = createContext<TripsContextValue | undefined>(undefined);
@@ -165,6 +166,21 @@ export const TripsProvider: React.FC<TripsProviderProps> = ({ children }) => {
     }
   };
 
+  const cleanupDeletedTrips = async (): Promise<number> => {
+    try {
+      // Permanently delete soft-deleted trips from local database
+      const deletedCount = await TripRepository.permanentlyDeleteSoftDeletedTrips();
+
+      // Refresh the UI to reflect the cleanup
+      await refreshFromDb();
+
+      return deletedCount;
+    } catch (error) {
+      console.error('Error cleaning up deleted trips:', error);
+      throw error;
+    }
+  };
+
   const value: TripsContextValue = {
     trips,
     isLoading,
@@ -173,6 +189,7 @@ export const TripsProvider: React.FC<TripsProviderProps> = ({ children }) => {
     updateTrip,
     deleteTrip,
     refreshFromDb,
+    cleanupDeletedTrips,
   };
 
   return (
