@@ -604,6 +604,168 @@ describe('/trips CRUD and sync behavior', () => {
     expect(finalTrip!.deleted).toBe(false);
   });
 
+  test('concurrent edit: client change persists when both client and server edit same trip', async () => {
+    // Create initial trip
+    const trip = {
+      id: 'concurrent-edit-trip',
+      title: 'Original Title',
+      destination: 'Location A',
+      startDate: '2025-12-01',
+      endDate: '2025-12-05',
+      notes: 'Original notes',
+    };
+
+    await request(app)
+      .post('/trips')
+      .send(trip)
+      .expect(201);
+
+    // Client does first sync to get initial state
+    const firstSyncRes = await request(app)
+      .post('/trips/batch')
+      .send({
+        clientId: 'mobile-client',
+        lastSyncedAt: null,
+        changes: [],
+      })
+      .expect(200);
+
+    const firstSyncTime = firstSyncRes.body.serverTime;
+
+    // Postman edits the trip (via PUT) to "Location B"
+    await request(app)
+      .put(`/trips/${trip.id}`)
+      .send({
+        title: 'Original Title',
+        destination: 'Location B',
+        startDate: '2025-12-01',
+        endDate: '2025-12-05',
+        notes: 'Edited via Postman',
+      })
+      .expect(200);
+
+    // Client edits the same trip locally to "Location C" (hasn't synced Postman's edit yet)
+    // Client syncs with their version
+    const concurrentSyncRes = await request(app)
+      .post('/trips/batch')
+      .send({
+        clientId: 'mobile-client',
+        lastSyncedAt: firstSyncTime,
+        changes: [
+          {
+            id: trip.id,
+            title: 'Original Title',
+            destination: 'Location C',
+            startDate: '2025-12-01',
+            endDate: '2025-12-05',
+            notes: 'Edited on client',
+            deleted: false,
+            updatedAt: Date.now(),
+          },
+        ],
+      })
+      .expect(200);
+
+    const concurrentSyncBody = concurrentSyncRes.body;
+
+    // Client's version should win (last-write-wins)
+    // serverChanges should NOT include the trip client just sent
+    const tripInServerChanges = concurrentSyncBody.serverChanges.find(
+      (t: TripDTO) => t.id === trip.id
+    );
+    expect(tripInServerChanges).toBeUndefined(); // Client already has this trip
+
+    // Verify the final state in database is "Location C"
+    const getRes = await request(app).get('/trips').expect(200);
+    const finalTrip = getRes.body.trips.find((t: TripDTO) => t.id === trip.id);
+    expect(finalTrip).toBeDefined();
+    expect(finalTrip.destination).toBe('Location C'); // Client's version persists
+    expect(finalTrip.notes).toBe('Edited on client');
+  });
+
+  test('server rejects stale client data when server has newer version', async () => {
+    // Create initial trip
+    const trip = {
+      id: 'stale-data-trip',
+      title: 'Original Title',
+      destination: 'Location C',
+      startDate: '2025-12-01',
+      endDate: '2025-12-05',
+      notes: 'Original notes',
+    };
+
+    await request(app)
+      .post('/trips')
+      .send(trip)
+      .expect(201);
+
+    // Client syncs to get initial state
+    const firstSyncRes = await request(app)
+      .post('/trips/batch')
+      .send({
+        clientId: 'mobile-client',
+        lastSyncedAt: null,
+        changes: [],
+      })
+      .expect(200);
+
+    const firstSyncTime = firstSyncRes.body.serverTime;
+    const initialTrip = firstSyncRes.body.serverChanges.find(
+      (t: TripDTO) => t.id === trip.id
+    );
+    const initialUpdatedAt = initialTrip.updatedAt;
+
+    // Postman edits trip to "Location D"
+    const postmanEditRes = await request(app)
+      .put(`/trips/${trip.id}`)
+      .send({
+        title: 'Original Title',
+        destination: 'Location D',
+        startDate: '2025-12-01',
+        endDate: '2025-12-05',
+        notes: 'Edited via Postman',
+      })
+      .expect(200);
+
+    const postmanUpdatedAt = postmanEditRes.body.trip.updatedAt;
+
+    // Client syncs with stale data (still has Location C)
+    const staleSyncRes = await request(app)
+      .post('/trips/batch')
+      .send({
+        clientId: 'mobile-client',
+        lastSyncedAt: firstSyncTime,
+        changes: [
+          {
+            id: trip.id,
+            title: 'Original Title',
+            destination: 'Location C',
+            startDate: '2025-12-01',
+            endDate: '2025-12-05',
+            notes: 'Original notes',
+            deleted: false,
+            updatedAt: initialUpdatedAt, // Stale timestamp
+          },
+        ],
+      })
+      .expect(200);
+
+    const staleSyncBody = staleSyncRes.body;
+
+    // Server should return the newer version (Location D) in serverChanges
+    expect(staleSyncBody.serverChanges.length).toBe(1);
+    const returnedTrip = staleSyncBody.serverChanges[0];
+    expect(returnedTrip.id).toBe(trip.id);
+    expect(returnedTrip.destination).toBe('Location D'); // Server's newer version
+    expect(returnedTrip.notes).toBe('Edited via Postman');
+
+    // Verify database has Location D
+    const getRes = await request(app).get('/trips').expect(200);
+    const finalTrip = getRes.body.trips.find((t: TripDTO) => t.id === trip.id);
+    expect(finalTrip).toBeDefined();
+    expect(finalTrip.destination).toBe('Location D'); // Server's version persists
+  });
+
   test('logs client and server summaries for /trips/batch', async () => {
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     const originalEnv = process.env.NODE_ENV;

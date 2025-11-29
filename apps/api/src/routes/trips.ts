@@ -156,6 +156,7 @@ router.post('/batch', async (req: Request, res: Response) => {
         endDate: change.endDate,
         notes: change.notes,
         deleted: !!change.deleted,
+        clientUpdatedAt: change.updatedAt, // Pass client's timestamp to detect stale data
       });
 
       // Determine status for applied array
@@ -178,17 +179,42 @@ router.post('/batch', async (req: Request, res: Response) => {
     // Prepare serverChanges:
     // - For first sync: return ALL trips
     // - For incremental: return trips that changed on server since lastSync,
-    //   EXCLUDING trips client just sent (client already has those)
+    //   EXCLUDING trips where client's version was accepted (client already has those)
+    //   INCLUDING trips where server rejected client's stale data (client needs update)
     let serverChangeRecords: TripRecord[];
     if (lastSynced === null) {
       // First sync: return everything
       serverChangeRecords = await getTripsForIncrementalSync(null);
     } else {
-      // Incremental sync: filter out trips client just sent
-      const clientChangeIds = new Set(changesList.map((c) => c.id));
-      serverChangeRecords = serverChangesBeforeClientUpdate.filter(
-        (rec) => !clientChangeIds.has(rec.id)
-      );
+      // Incremental sync: include server changes that client doesn't have
+      const changesByIdMap = new Map(changesList.map((c) => [c.id, c]));
+
+      serverChangeRecords = serverChangesBeforeClientUpdate.filter((serverRec) => {
+        const clientSent = changesByIdMap.get(serverRec.id);
+        if (!clientSent) {
+          // Client didn't send this trip, so they need it
+          return true;
+        }
+
+        // Client sent this trip - check if server kept it or rejected it
+        const finalApplied = appliedRecords.find((r) => r.id === serverRec.id);
+        if (!finalApplied) {
+          // Shouldn't happen, but be safe
+          return false;
+        }
+
+        // If final version differs from what client sent, client needs the update
+        const clientDataMatches =
+          finalApplied.title === clientSent.title &&
+          finalApplied.destination === clientSent.destination &&
+          finalApplied.startDate === clientSent.startDate &&
+          finalApplied.endDate === clientSent.endDate &&
+          (finalApplied.notes || null) === (clientSent.notes || null) &&
+          (finalApplied.deleted ? true : false) === (clientSent.deleted ? true : false);
+
+        // Return true if data doesn't match (server has different version)
+        return !clientDataMatches;
+      });
     }
     const serverChanges = serverChangeRecords.map(toTripDTO);
 

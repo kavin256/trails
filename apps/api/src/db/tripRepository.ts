@@ -138,6 +138,7 @@ export async function upsertTripFromClient(input: {
   endDate: string;
   notes?: string;
   deleted: boolean;
+  clientUpdatedAt?: number; // Client's timestamp to detect stale data
 }): Promise<TripRecord> {
   const database = await getDb();
 
@@ -159,8 +160,25 @@ export async function upsertTripFromClient(input: {
     existing.notes !== normalizedInputNotes ||
     (existing.deleted ? true : false) !== input.deleted;
 
-  // Only update timestamp if data changed
-  const finalUpdatedAt = hasChanged ? serverUpdatedAt : (existing?.updatedAt || serverUpdatedAt);
+  // Check if server has newer data than what client is sending
+  // If server's timestamp is newer, reject the client's stale data
+  const serverHasNewerData = existing &&
+    input.clientUpdatedAt !== undefined &&
+    existing.updatedAt > input.clientUpdatedAt;
+
+  // Only update if:
+  // 1. Trip doesn't exist (new trip), OR
+  // 2. Data changed AND server doesn't have newer data
+  const shouldUpdate = !existing || (hasChanged && !serverHasNewerData);
+
+  // Determine final values to write
+  const finalTitle = shouldUpdate ? input.title : existing.title;
+  const finalDestination = shouldUpdate ? input.destination : existing.destination;
+  const finalStartDate = shouldUpdate ? input.startDate : existing.startDate;
+  const finalEndDate = shouldUpdate ? input.endDate : existing.endDate;
+  const finalNotes = shouldUpdate ? normalizedInputNotes : existing.notes;
+  const finalDeleted = shouldUpdate ? input.deleted : (existing.deleted ? true : false);
+  const finalUpdatedAt = shouldUpdate && hasChanged ? serverUpdatedAt : (existing?.updatedAt || serverUpdatedAt);
 
   // Use INSERT ... ON CONFLICT for upsert
   await database.run(
@@ -176,13 +194,13 @@ export async function upsertTripFromClient(input: {
        deleted = excluded.deleted`,
     [
       input.id,
-      input.title,
-      input.destination,
-      input.startDate,
-      input.endDate,
-      normalizedInputNotes,
+      finalTitle,
+      finalDestination,
+      finalStartDate,
+      finalEndDate,
+      finalNotes,
       finalUpdatedAt,
-      input.deleted ? 1 : 0,
+      finalDeleted ? 1 : 0,
     ]
   );
 
