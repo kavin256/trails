@@ -715,6 +715,9 @@ describe('/trips CRUD and sync behavior', () => {
     );
     const initialUpdatedAt = initialTrip.updatedAt;
 
+    // Small delay to ensure Postman's edit has a later timestamp
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
     // Postman edits trip to "Location D"
     const postmanEditRes = await request(app)
       .put(`/trips/${trip.id}`)
