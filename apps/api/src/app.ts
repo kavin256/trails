@@ -12,6 +12,10 @@ app.use(cors());
 if (process.env.NODE_ENV !== 'test') {
   app.use((req: Request, res: Response, next: NextFunction) => {
     const startTime = Date.now();
+    const logObject = (prefix: string, obj: any) => {
+      const serialized = JSON.stringify(obj, null, 2);
+      serialized.split('\n').forEach(line => console.log(`${prefix}${line}`));
+    };
 
     // Log request details
     console.log(`\n📥 ${req.method} ${req.path}`);
@@ -25,6 +29,13 @@ if (process.env.NODE_ENV !== 'test') {
         console.log(`   Last synced: ${new Date(lastSyncedAt).toLocaleTimeString()}`);
       }
       console.log(`   Client sending: ${changes?.length || 0} trips`);
+      if (Array.isArray(changes) && changes.length > 0) {
+        console.log(`   Client changes (${changes?.length}):`);
+        changes.forEach((change: any, index: number) => {
+          console.log(`     #${index + 1}:`);
+          logObject('       ', change);
+        });
+      }
     } else if (Object.keys(req.query).length > 0) {
       console.log(`   Query:`, req.query);
     } else if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
@@ -41,13 +52,14 @@ if (process.env.NODE_ENV !== 'test') {
         const { applied, serverChanges } = body || {};
         console.log(`📤 Response (${res.statusCode}) - ${duration}ms`);
         console.log(`   Applied: ${applied?.length || 0} trips`);
-        console.log(`   Server changes: ${serverChanges?.length || 0} trips`);
+        console.log(`   Server sending: ${serverChanges?.length || 0} trips`);
 
-        if (serverChanges?.length > 0) {
-          const changeIds = serverChanges.map((t: any) =>
-            `${t.id}${t.deleted ? ' (deleted)' : ''}`
-          ).join(', ');
-          console.log(`   Changed IDs: ${changeIds}`);
+        if (Array.isArray(serverChanges) && serverChanges.length > 0) {
+          console.log(`   Server changes (${serverChanges?.length}):`);
+          serverChanges.forEach((t: any, index: number) => {
+            console.log(`     #${index + 1}:`);
+            logObject('       ', t);
+          });
         }
       } else {
         console.log(`📤 Response (${res.statusCode}) - ${duration}ms`);
