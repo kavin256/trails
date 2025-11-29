@@ -348,6 +348,20 @@ Content-Type: application/json
 - **`conflicts`**: Currently always empty. Future versions may detect conflicts.
 - **`serverChanges`**: Trips that other devices changed since your last sync. These use server timestamps.
 
+**Sync Order of Operations:**
+
+The server processes batch sync requests in a specific order to prevent race conditions:
+
+1. **Capture server state** (for incremental sync only): Before applying any client changes, the server captures what has changed since `lastSyncedAt`. This prevents concurrent edits (e.g., from Postman or another client) from being overwritten by the incoming client changes.
+
+2. **Apply client changes**: The server processes all changes from the client and assigns new server timestamps.
+
+3. **Return appropriate changes**:
+   - **First sync** (`lastSyncedAt = null`): Returns ALL trips including ones just created/updated
+   - **Incremental sync** (`lastSyncedAt = number`): Returns only the changes captured in step 1
+
+This ensures that if you edit a trip via the API (e.g., Postman) while a client is offline, the next sync will properly deliver that edit to the client, even if the client also has local changes to the same trip.
+
 ---
 
 ### DELETE /trips/cleanup
