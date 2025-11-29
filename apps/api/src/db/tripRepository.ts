@@ -141,10 +141,28 @@ export async function upsertTripFromClient(input: {
 }): Promise<TripRecord> {
   const database = await getDb();
 
-  // Server assigns authoritative timestamp (ignore client's updatedAt)
-  const serverUpdatedAt = Date.now();
+  // Check if trip exists and if data has changed
+  const existing = await database.get<TripRecord>(
+    'SELECT * FROM trips WHERE id = ?',
+    [input.id]
+  );
 
-  // Use INSERT ... ON CONFLICT for upsert with server-controlled timestamp
+  const serverUpdatedAt = Date.now();
+  const normalizedInputNotes = input.notes || null;
+
+  // Determine if data actually changed
+  const hasChanged = !existing ||
+    existing.title !== input.title ||
+    existing.destination !== input.destination ||
+    existing.startDate !== input.startDate ||
+    existing.endDate !== input.endDate ||
+    existing.notes !== normalizedInputNotes ||
+    (existing.deleted ? true : false) !== input.deleted;
+
+  // Only update timestamp if data changed
+  const finalUpdatedAt = hasChanged ? serverUpdatedAt : (existing?.updatedAt || serverUpdatedAt);
+
+  // Use INSERT ... ON CONFLICT for upsert
   await database.run(
     `INSERT INTO trips (id, title, destination, startDate, endDate, notes, updatedAt, deleted)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -162,8 +180,8 @@ export async function upsertTripFromClient(input: {
       input.destination,
       input.startDate,
       input.endDate,
-      input.notes || null,
-      serverUpdatedAt,
+      normalizedInputNotes,
+      finalUpdatedAt,
       input.deleted ? 1 : 0,
     ]
   );

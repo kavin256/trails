@@ -176,17 +176,19 @@ router.post('/batch', async (req: Request, res: Response) => {
     const serverTime = Date.now();
 
     // Prepare serverChanges:
-    // - For first sync: all trips after apply
-    // - For incremental: merge prior server edits (before client apply) with the newly applied records,
-    //   letting applied records win (last writer wins with server timestamps)
+    // - For first sync: return ALL trips
+    // - For incremental: return trips that changed on server since lastSync,
+    //   EXCLUDING trips client just sent (client already has those)
     let serverChangeRecords: TripRecord[];
     if (lastSynced === null) {
+      // First sync: return everything
       serverChangeRecords = await getTripsForIncrementalSync(null);
     } else {
-      const mergedById = new Map<string, TripRecord>();
-      serverChangesBeforeClientUpdate.forEach((rec) => mergedById.set(rec.id, rec));
-      appliedRecords.forEach((rec) => mergedById.set(rec.id, rec));
-      serverChangeRecords = Array.from(mergedById.values());
+      // Incremental sync: filter out trips client just sent
+      const clientChangeIds = new Set(changesList.map((c) => c.id));
+      serverChangeRecords = serverChangesBeforeClientUpdate.filter(
+        (rec) => !clientChangeIds.has(rec.id)
+      );
     }
     const serverChanges = serverChangeRecords.map(toTripDTO);
 
