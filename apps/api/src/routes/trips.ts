@@ -4,7 +4,6 @@ import {
   getTripsForIncrementalSync,
   upsertTripFromClient,
   toTripDTO,
-  TripRecord,
   permanentlyDeleteSoftDeletedTrips,
 } from '../db/tripRepository.js';
 
@@ -135,15 +134,8 @@ router.post('/batch', async (req: Request, res: Response) => {
     const lastSynced: number | null =
       typeof lastSyncedAt === 'number' ? lastSyncedAt : null;
 
-    // IMPORTANT: For incremental sync, capture server state BEFORE applying client changes
-    // This prevents client changes from overwriting concurrent server-side edits (e.g., from Postman)
-    const serverChangesBeforeClientUpdate = lastSynced !== null
-      ? await getTripsForIncrementalSync(lastSynced)
-      : [];
-
     // Apply changes to SQLite database
     const applied: { id: string; status: 'created' | 'updated' | 'deleted' }[] = [];
-
     for (const change of changesList) {
       // Get existing trip to determine status
       const existingRecords = await getTripsForIncrementalSync(null);
@@ -176,12 +168,10 @@ router.post('/batch', async (req: Request, res: Response) => {
     // Compute server time
     const serverTime = Date.now();
 
-    // Get server changes to return to client
-    // For first sync (lastSynced=null): return ALL trips (including ones just created)
-    // For incremental sync: return trips that were already different before client update
-    const serverChangeRecords = lastSynced === null
-      ? await getTripsForIncrementalSync(null)
-      : serverChangesBeforeClientUpdate;
+    // After applying, return authoritative state newer than lastSyncedAt:
+    // - Client's own writes (with server timestamps)
+    // - Any other server-side edits since lastSyncedAt
+    const serverChangeRecords = await getTripsForIncrementalSync(lastSynced);
     const serverChanges = serverChangeRecords.map(toTripDTO);
 
     // Return response matching the API contract
