@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import request from 'supertest';
 import app from '../src/app.js';
 import { clearAllTrips } from '../src/db/tripRepository.js';
@@ -601,5 +602,55 @@ describe('/trips CRUD and sync behavior', () => {
     expect(finalTrip).toBeDefined();
     expect(finalTrip!.title).toBe(updatedTitle);
     expect(finalTrip!.deleted).toBe(false);
+  });
+
+  test('logs client and server summaries for /trips/batch', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const originalEnv = process.env.NODE_ENV;
+
+    try {
+      jest.resetModules();
+      process.env.NODE_ENV = 'development';
+      const { default: appWithLogging } = await import('../src/app.js');
+      const { clearAllTrips: clearTrips } = await import('../src/db/tripRepository.js');
+
+      await clearTrips();
+
+      const trip = {
+        id: 'log-trip',
+        title: 'Logged Trip',
+        destination: 'Log City',
+        startDate: '2025-08-01',
+        endDate: '2025-08-02',
+        notes: 'Check logging',
+        deleted: false,
+        updatedAt: Date.now(),
+      };
+
+      await request(appWithLogging)
+        .post('/trips/batch')
+        .send({
+          clientId: 'logger',
+          lastSyncedAt: null,
+          changes: [trip],
+        })
+        .expect(200);
+
+      const logs = logSpy.mock.calls.map(call =>
+        call
+          .map(arg => (typeof arg === 'string' ? arg : JSON.stringify(arg)))
+          .join(' ')
+      );
+
+      const sawClientSummary = logs.some(line => line.includes('Client sending: 1 trips'));
+      const sawServerSummary = logs.some(line => line.includes('Server sending: 1 trips'));
+
+      expect(sawClientSummary).toBe(true);
+      expect(sawServerSummary).toBe(true);
+    } finally {
+      process.env.NODE_ENV = originalEnv;
+      jest.resetModules();
+      logSpy.mockRestore();
+    }
   });
 });

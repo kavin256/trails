@@ -348,6 +348,33 @@ Content-Type: application/json
 - **`conflicts`**: Currently always empty. Future versions may detect conflicts.
 - **`serverChanges`**: Trips that other devices changed since your last sync. These use server timestamps.
 
+### Request Logging (server-side)
+
+For `/trips/batch`, the server logs both client and server payload summaries to help debug syncs:
+
+```
+📥 POST /trips/batch
+   Type: INCREMENTAL
+   Last synced: 3:19:52 AM
+   Client sending: 3 trips
+   Client changes (3):
+     #1:
+       { ...full client change... }
+     #2:
+       { ... }
+   📤 Response (200) - 13ms
+   Applied: 3 trips
+   Server sending: 2 trips
+   Server changes (2):
+     #1:
+       { ...full server change... }
+     #2:
+       { ... }
+```
+
+- `Client sending` shows how many client changes were received, followed by full objects.
+- `Server sending` shows how many server changes were returned, followed by the full objects sent to the client.
+
 **Sync Order of Operations:**
 
 The server processes batch sync requests in a specific order to prevent race conditions:
