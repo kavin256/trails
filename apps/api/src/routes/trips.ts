@@ -5,6 +5,7 @@ import {
   upsertTripFromClient,
   toTripDTO,
   permanentlyDeleteSoftDeletedTrips,
+  TripRecord,
 } from '../db/tripRepository.js';
 
 const router = express.Router();
@@ -134,15 +135,20 @@ router.post('/batch', async (req: Request, res: Response) => {
     const lastSynced: number | null =
       typeof lastSyncedAt === 'number' ? lastSyncedAt : null;
 
+    // For incremental sync, capture server state since last sync (for merging with client writes)
+    const serverChangesBeforeClientUpdate: TripRecord[] =
+      lastSynced !== null ? await getTripsForIncrementalSync(lastSynced) : [];
+
     // Apply changes to SQLite database
     const applied: { id: string; status: 'created' | 'updated' | 'deleted' }[] = [];
+    const appliedRecords: TripRecord[] = [];
     for (const change of changesList) {
       // Get existing trip to determine status
       const existingRecords = await getTripsForIncrementalSync(null);
       const existing = existingRecords.find((r) => r.id === change.id);
 
       // Upsert the trip with server-controlled timestamp
-      await upsertTripFromClient({
+      const updatedRecord = await upsertTripFromClient({
         id: change.id,
         title: change.title,
         destination: change.destination,
@@ -163,15 +169,25 @@ router.post('/batch', async (req: Request, res: Response) => {
       }
 
       applied.push({ id: change.id, status });
+      appliedRecords.push(updatedRecord);
     }
 
     // Compute server time
     const serverTime = Date.now();
 
-    // After applying, return authoritative state newer than lastSyncedAt:
-    // - Client's own writes (with server timestamps)
-    // - Any other server-side edits since lastSyncedAt
-    const serverChangeRecords = await getTripsForIncrementalSync(lastSynced);
+    // Prepare serverChanges:
+    // - For first sync: all trips after apply
+    // - For incremental: merge prior server edits (before client apply) with the newly applied records,
+    //   letting applied records win (last writer wins with server timestamps)
+    let serverChangeRecords: TripRecord[];
+    if (lastSynced === null) {
+      serverChangeRecords = await getTripsForIncrementalSync(null);
+    } else {
+      const mergedById = new Map<string, TripRecord>();
+      serverChangesBeforeClientUpdate.forEach((rec) => mergedById.set(rec.id, rec));
+      appliedRecords.forEach((rec) => mergedById.set(rec.id, rec));
+      serverChangeRecords = Array.from(mergedById.values());
+    }
     const serverChanges = serverChangeRecords.map(toTripDTO);
 
     // Return response matching the API contract
