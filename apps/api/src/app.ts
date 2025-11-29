@@ -17,11 +17,16 @@ if (process.env.NODE_ENV !== 'test') {
       serialized.split('\n').forEach(line => console.log(`${prefix}${line}`));
     };
 
+    const isTripsBatchPost =
+      req.method === 'POST' &&
+      (req.path === '/trips/batch' ||
+        req.originalUrl?.startsWith('/trips/batch'));
+
     // Log request details
     console.log(`\n📥 ${req.method} ${req.path}`);
 
     // Special handling for /trips/batch sync endpoint
-    if (req.path === '/trips/batch' && req.method === 'POST') {
+    if (isTripsBatchPost) {
       const { lastSyncedAt, changes } = req.body || {};
       const syncType = lastSyncedAt === null ? 'FULL SYNC' : 'INCREMENTAL';
       console.log(`   Type: ${syncType}`);
@@ -48,7 +53,7 @@ if (process.env.NODE_ENV !== 'test') {
       const duration = Date.now() - startTime;
 
       // Special handling for /trips/batch response
-      if (req.path === '/trips/batch' && req.method === 'POST') {
+      if (isTripsBatchPost) {
         const { applied, serverChanges } = body || {};
         console.log(`📤 Response (${res.statusCode}) - ${duration}ms`);
         console.log(`   Applied: ${applied?.length || 0} trips`);
